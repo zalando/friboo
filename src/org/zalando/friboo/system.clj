@@ -1,36 +1,11 @@
 (ns org.zalando.friboo.system
   (:require [org.zalando.friboo.system.http :as http]
             [com.stuartsierra.component :as component]
-            [environ.core :refer [env]]
-            [clojure.tools.logging :as log]
-            [clojure.string :refer [replace-first]])
+            [clojure.tools.logging :as log])
   (:import (org.apache.logging.log4j LogManager Level)
            (org.apache.logging.log4j.core LoggerContext)
            (org.apache.logging.log4j.core.config Configuration LoggerConfig)))
 
-(defn- strip [namespace k]
-  (keyword (replace-first (name k) (str (name namespace) "-") "")))
-
-(defn- namespaced [config namespace]
-  (if (contains? config namespace)
-    (config namespace)
-    (into {} (map (fn [[k v]] [(strip (name namespace) k) v])
-                  (filter (fn [[k v]]
-                            (.startsWith (name k) (str (name namespace) "")))
-                          config)))))
-
-(defn parse-namespaces [config namespaces]
-  (let [namespaced-configs (into {} (map (juxt identity (partial namespaced config)) namespaces))]
-    (doseq [[namespace namespaced-config] namespaced-configs]
-      (log/debug "Destructured" namespace "into" namespaced-config))
-    namespaced-configs))
-
-(defn load-configuration
-  "Loads configuration options from various places."
-  [default-configuration & namespaces]
-  (parse-namespaces
-    (merge default-configuration env)
-    (conj namespaces :system :http :db)))
 
 (defn set-log-level
   "Changes the log level of the log4j2 root logger."

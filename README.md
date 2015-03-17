@@ -31,6 +31,8 @@ any dependencies into your API functions.
 
 TODO provide example application; demonstrate the API protocol
 
+TODO HINT: set java.util.logging.manager= org.apache.logging.log4j.jul.LogManager to have proper JUL logging
+
 ## License
 
 Copyright © 2015 Zalando SE
