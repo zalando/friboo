@@ -5,6 +5,10 @@ A utility library to write microservices in Clojure. The library provides some c
 
 ## Usage
 
+Dependency:
+
+[![Clojars Project](http://clojars.org/org.zalando/friboo/latest-version.svg)](http://clojars.org/org.zalando/friboo)
+
 Most simple case:
 
 ```clojure
