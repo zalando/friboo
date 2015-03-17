@@ -27,8 +27,10 @@
 
 (defn load-configuration
   "Loads configuration options from various places."
-  [& namespaces]
-  (parse-namespaces env (conj namespaces :http :system)))
+  [default-configuration & namespaces]
+  (parse-namespaces
+    (merge default-configuration env)
+    (conj namespaces :system :http :db)))
 
 (defn set-log-level
   "Changes the log level of the log4j2 root logger."

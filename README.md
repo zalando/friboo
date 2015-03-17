@@ -19,10 +19,10 @@ Most simple case:
 
 ### Configuration options
 
-* `:definition` has to point to a Swagger 2.0 YAML file in the classpath (see
+* `:http-definition` has to point to a Swagger 2.0 YAML file in the classpath (see
   [swagger1st](https://github.com/sarnowski/swagger1st))
-* `:cors-origin` may be set to a domain mask for CORS access (e.g. `*.zalando.de`).
-* All configurations that [HTTP Kit supports](http://www.http-kit.org/server.html).
+* `:http-cors-origin` may be set to a domain mask for CORS access (e.g. `*.zalando.de`).
+* All configurations that Jetty supports prefix with 'http-' like 'http-port'.
 
 ## Real-world usage
 
