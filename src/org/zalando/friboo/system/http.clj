@@ -32,7 +32,8 @@
                             (wrap-params))]
 
             ; use httpkit as ring implementation
-            (assoc this :httpd (jetty/run-jetty handler configuration)))))))
+            (assoc this :httpd (jetty/run-jetty handler (merge configuration
+                                                               {:join? false}))))))))
 
   (stop [this]
     (if-not httpd
@@ -42,7 +43,7 @@
 
       (do
         (log/info "stopping HTTP daemon")
-        (httpd :timeout 100)
+        (.stop httpd)
         (assoc this :httpd nil)))))
 
 (defn new-http
