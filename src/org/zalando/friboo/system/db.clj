@@ -3,10 +3,8 @@
             [ring.middleware.params :refer [wrap-params]]
             [ring.util.response :as r]
             [com.stuartsierra.component :as component]
-            [org.httpkit.server :as httpkit]
             [clojure.tools.logging :as log])
-  (:import (org.zalando.friboo.system.http API HTTP)
-           (com.jolbox.bonecp BoneCPDataSource)))
+  (:import (com.jolbox.bonecp BoneCPDataSource)))
 
 (defrecord DB [configuration datasource]
   component/Lifecycle

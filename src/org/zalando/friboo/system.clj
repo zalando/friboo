@@ -33,10 +33,13 @@
 (defn run
   "Boots a whole new system."
   [configuration system]
+  (log/info "starting system...")
   (if-let [log-level (:log-level configuration)]
     (do
       (log/warn "setting log level to" log-level)
       (set-log-level log-level)))
   (let [system (new-system configuration system)]
     (log/trace "starting system")
-    (component/start system)))
+    (let [system (component/start system)]
+      (log/info "system started.")
+      system)))

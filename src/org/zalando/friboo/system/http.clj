@@ -1,9 +1,8 @@
 (ns org.zalando.friboo.system.http
   (:require [io.sarnowski.swagger1st.core :as s1st]
             [ring.middleware.params :refer [wrap-params]]
-            [ring.util.response :as r]
+            [ring.adapter.jetty :as jetty]
             [com.stuartsierra.component :as component]
-            [org.httpkit.server :as httpkit]
             [clojure.tools.logging :as log]))
 
 (defprotocol API
@@ -33,7 +32,7 @@
                             (wrap-params))]
 
             ; use httpkit as ring implementation
-            (assoc this :httpd (httpkit/run-server handler configuration)))))))
+            (assoc this :httpd (jetty/run-jetty handler configuration)))))))
 
   (stop [this]
     (if-not httpd
@@ -51,13 +50,15 @@
   [configuration]
   (map->HTTP {:configuration configuration}))
 
+(defn flatten-parameters [request]
+  (reduce merge (:parameters request)))
+
 (defn flattened-parameter-mapper
   "swagger1st mapper that flattens the given parameters and provides them simply as a map in the first argument."
   [operationId]
   (fn [request]
     (if-let [cljfn (s1st/map-function-name operationId)]
-      (let [flattened-parameters (reduce merge (:parameters request))]
-        (cljfn flattened-parameters request)))))
+      (cljfn (flatten-parameters request) request))))
 
 ; If your API function do not need any other component, this component can be used.
 (defrecord DefaultApi [] component/Lifecycle API
