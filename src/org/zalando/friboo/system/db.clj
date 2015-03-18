@@ -6,6 +6,9 @@
             [clojure.tools.logging :as log])
   (:import (com.jolbox.bonecp BoneCPDataSource)))
 
+; 'configuration' must be provided during initialization
+; 'datasource' is the internal state
+; HINT: this component is itself a valid db-spec
 (defrecord DB [configuration datasource]
   component/Lifecycle
 
@@ -44,8 +47,3 @@
         (log/info "stopping DB connection pool")
         (.close datasource)
         (assoc this :pool nil)))))
-
-(defn new-db
-  "Official constructor for the DB."
-  [configuration]
-  (map->DB {:configuration configuration}))

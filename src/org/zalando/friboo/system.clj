@@ -1,13 +1,11 @@
 (ns org.zalando.friboo.system
-  (:require [org.zalando.friboo.system.http :as http]
-            [com.stuartsierra.component :as component]
+  (:require [com.stuartsierra.component :as component]
             [clojure.tools.logging :as log])
   (:import (org.apache.logging.log4j LogManager Level)
            (org.apache.logging.log4j.core LoggerContext)
            (org.apache.logging.log4j.core.config Configuration LoggerConfig)))
 
-
-(defn set-log-level
+(defn- set-log-level
   "Changes the log level of the log4j2 root logger."
   [level]
   (let [^Level level (Level/getLevel level)
@@ -16,13 +14,6 @@
         ^LoggerConfig logger (.getLoggerConfig config LogManager/ROOT_LOGGER_NAME)]
     (.setLevel logger level)
     (.updateLoggers ctx)))
-
-(defn new-system
-  "Creates a new system-map that preconfigures an HTTP server with swagger1st."
-  [configuration system]
-  (let [default-system {:http (component/using (http/new-http (:http configuration)) [:api])
-                        :api  (http/new-default-api)}]
-    (component/map->SystemMap (merge default-system system))))
 
 (defn run
   "Boots a whole new system."

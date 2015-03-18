@@ -2,68 +2,74 @@
   (:require [io.sarnowski.swagger1st.core :as s1st]
             [ring.middleware.params :refer [wrap-params]]
             [ring.adapter.jetty :as jetty]
-            [com.stuartsierra.component :as component]
+            [com.stuartsierra.component :refer [Lifecycle]]
             [clojure.tools.logging :as log]))
 
-(defprotocol API
-  (get-mapper-fn [this] "provides a mapper function to resolve functions"))
-
-; 'configuration' will be given on initialization
-; 'httpd' is the internal http server state
-; 'api' has to be injected before start and must contain an API protocol implementation
-(defrecord HTTP [configuration httpd api]
-  component/Lifecycle
-
-  (start [this]
-    (if httpd
-      (do
-        (log/debug "skipping start of HTTP; already running")
-        this)
-
-      (do
-        (let [{:keys [definition cors-origin]} configuration]
-          (log/info "starting HTTP daemon for API" definition)
-          (let [handler (-> (s1st/swagger-executor :mappers [(get-mapper-fn api)])
-                            (s1st/swagger-security)
-                            (s1st/swagger-validator)
-                            (s1st/swagger-parser)
-                            (s1st/swagger-discovery)
-                            (s1st/swagger-mapper ::s1st/yaml-cp definition :cors-origin cors-origin)
-                            (wrap-params))]
-
-            ; use httpkit as ring implementation
-            (assoc this :httpd (jetty/run-jetty handler (merge configuration
-                                                               {:join? false}))))))))
-
-  (stop [this]
-    (if-not httpd
-      (do
-        (log/debug "skipping stop of HTTP; not running")
-        this)
-
-      (do
-        (log/info "stopping HTTP daemon")
-        (.stop httpd)
-        (assoc this :httpd nil)))))
-
-(defn new-http
-  "Official constructor for the HTTP."
-  [configuration]
-  (map->HTTP {:configuration configuration}))
-
-(defn flatten-parameters [request]
+(defn flatten-parameters
+  "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
+   are unique in general and flattens them for easier access."
+  [request]
   (reduce merge (:parameters request)))
 
-(defn flattened-parameter-mapper
-  "swagger1st mapper that flattens the given parameters and provides them simply as a map in the first argument."
-  [operationId]
-  (fn [request]
-    (if-let [cljfn (s1st/map-function-name operationId)]
-      (cljfn (flatten-parameters request) request))))
+(defn start-component
+  "Starts the http component."
+  [component mapper-fn]
+  (if (:httpd component)
+    (do
+      (log/debug "skipping start of HTTP; already running")
+      component)
 
-; If your API function do not need any other component, this component can be used.
-(defrecord DefaultApi [] component/Lifecycle API
-  (get-mapper-fn [_] flattened-parameter-mapper))
+    (do
+      (let [{:keys [definition cors-origin]} (:configuration component)]
+        (log/info "starting HTTP daemon for API" definition)
+        (let [handler (-> (s1st/swagger-executor :mappers [mapper-fn])
+                          (s1st/swagger-security)
+                          (s1st/swagger-validator)
+                          (s1st/swagger-parser)
+                          (s1st/swagger-discovery)
+                          (s1st/swagger-mapper ::s1st/yaml-cp definition :cors-origin cors-origin)
+                          (wrap-params))]
 
-(defn new-default-api []
-  (map->DefaultApi {}))
+          (assoc component :httpd (jetty/run-jetty handler (merge (:configuration component)
+                                                                  {:join? false}))))))))
+
+(defn stop-component
+  "Stops the http component."
+  [component]
+  (if-not (:httpd component)
+    (do
+      (log/debug "skipping stop of HTTP; not running")
+      component)
+
+    (do
+      (log/info "stopping HTTP daemon")
+      (.stop (:httpd component))
+      (assoc component :httpd nil))))
+
+(defmacro def-http-component
+  "Creates an http component with your name and all your given dependencies. Those dependencies will also be available
+   for your functions.
+
+   Example:
+     (def-http-component API [db scheduler])
+
+     (defn my-operation-function [parameters request db scheduler]
+       ...)
+
+  The first parameter will be a flattened list of the request parameters. See the flatten-parameters function.
+  "
+  [name dependencies]
+  ; 'configuration' has to be given on initialization
+  ; 'httpd' is the internal http server state
+  `(defrecord ~name [~(symbol "configuration") ~(symbol "httpd") ~@dependencies]
+     Lifecycle
+
+     (start [this#]
+       (let [mapper-fn# (fn [operationId#]
+                          (if-let [cljfn# (s1st/map-function-name operationId#)]
+                            (fn [request#]
+                              (cljfn# (flatten-parameters request#) request# ~@dependencies))))]
+         (start-component this# mapper-fn#)))
+
+     (stop [this#]
+       (stop-component this#))))
