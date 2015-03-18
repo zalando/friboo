@@ -13,27 +13,80 @@ Most simple case:
 
 ```clojure
 (ns examples
-  (:require [org.zalando.friboo.system :as system])
+  (:require [org.zalando.friboo.system :as system]
+            [com.stuartsierra.component :as component])
   (:gen-class))
 
 (defn -main [&args]
-  (let [configuration (system/load-configuration)]
+  (let [configuration (system/load-configuration)
+        system (component/new-system
+          ; your system setup, see https://github.com/stuartsierra/component
+          )]
     (system/run configuration)))
 ```
 
 ### Configuration options
 
-* `:http-definition` has to point to a Swagger 2.0 YAML file in the classpath (see
-  [swagger1st](https://github.com/sarnowski/swagger1st))
-* `:http-cors-origin` may be set to a domain mask for CORS access (e.g. `*.zalando.de`).
-* All configurations that Jetty supports prefix with 'http-' like 'http-port'.
+* `:system-log-level` can be used to set the root logger to something different than `INFO`.
+
+## Helpful components
+
+Friboo mainly provides some helpful utilities which are mostly presented as components.
+
+### HTTP component
+
+The HTTP component is generated on demand by the `def-http-component` macro. You can define which dependencies your
+API functions require.
+
+```clojure
+(ns myapi
+  (:require [org.zalando.friboo.system.http :refer [def-http-component]))
+
+(def-http-component MyAPI "my-api.yaml" [db scheduler])
+
+(defn my-api-function [parameters request db scheduler]
+  ; your implementation that can use 'db' as well as 'scheduler' dependencies
+  )
+```
+
+The first argument of your function will always be a flattened map (parameter name -> parameter value) without `in`
+categorisation. This does violate the swagger spec which calls parameter names only unique in combination with your
+`in` type. You have to take care during modelling your API.
+
+#### Configuration options
+
+The component has to be initialized with its configuration in the `:configuration` key.
+
+    (map->MyAPI {:configuration {:port        8080
+                                 :cors-origin "*.zalando.de"}})
+
+* `:cors-origin` may be set to a domain mask for CORS access (e.g. `*.zalando.de`).
+* All configurations that Jetty supports.
+
+### DB component
+
+The DB component is generated on demand by the `def-db-component` macro. The DB component is itself a `db-spec`
+compliant data structure, backed by a connection pool.
+
+```clojure
+(ns mydb
+  (:require [org.zalando.friboo.system.db :refer [def-db-component]))
+
+(def-db-component MyDB)
+```
+
+#### Configuration options
+
+The component has to be initialized with its configuration in the `:configuration` key.
+
+    (map->MyDB {:configuration {:subprotocol "postgresql"
+                                :subname     "localhost/mydb"}})
+
+TODO link to jdbc documentation, pool specific configuration like min- and max-pool-size
 
 ## Real-world usage
 
-If you want to leverage the component framework correctly, the simple use case above won't help you as you don't get
-any dependencies into your API functions.
-
-TODO provide example application; demonstrate the API protocol
+TODO link to actual implementations like Kio
 
 TODO HINT: set java.util.logging.manager= org.apache.logging.log4j.jul.LogManager to have proper JUL logging
 
