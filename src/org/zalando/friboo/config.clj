@@ -57,8 +57,9 @@
 
 (defn load-configuration
   "Loads configuration options from various places."
-  [default-configuration & namespaces]
-  (parse-namespaces
-    (decrypt
-      (merge default-configuration env))
-    (conj namespaces :system :http :db)))
+  [namespaces default-configurations]
+  (let [default-configuration (apply merge default-configurations)]
+    (parse-namespaces
+      (decrypt
+        (merge default-configuration env))
+      (conj namespaces :system))))
