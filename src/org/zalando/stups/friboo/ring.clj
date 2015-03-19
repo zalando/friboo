@@ -1,4 +1,4 @@
-(ns org.zalando.friboo.ring
+(ns org.zalando.stups.friboo.ring
   (:require [ring.util.response :refer :all]))
 
 ;; some convinience helpers

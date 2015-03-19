@@ -1,4 +1,4 @@
-(ns org.zalando.friboo.system
+(ns org.zalando.stups.friboo.system
   (:require [com.stuartsierra.component :as component]
             [clojure.tools.logging :as log])
   (:import (org.apache.logging.log4j LogManager Level)

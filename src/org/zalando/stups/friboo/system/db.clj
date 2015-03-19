@@ -1,4 +1,4 @@
-(ns org.zalando.friboo.system.db
+(ns org.zalando.stups.friboo.system.db
   (:require [io.sarnowski.swagger1st.core :as s1st]
             [ring.middleware.params :refer [wrap-params]]
             [ring.util.response :as r]

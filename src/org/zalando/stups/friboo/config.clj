@@ -1,4 +1,4 @@
-(ns org.zalando.friboo.config
+(ns org.zalando.stups.friboo.config
   (:require [environ.core :refer [env]]
             [clojure.tools.logging :as log]
             [clojure.string :refer [replace-first]]
@@ -50,10 +50,29 @@
       (decrypt-value-with-aws-kms value aws-region-id))
     value))
 
+(defn- to-real-boolean
+  "Maps a boolean string to boolean or returns the string."
+  [value]
+  (if (string? value)
+    (case value
+      "true" true
+      "false" false
+      value)
+    value))
+
+(defn- to-real-number
+  "Maps a number string to long or returns the string."
+  [value]
+  (if (and (string? value) (not (nil? (re-matches #"^[0-9]+$" value))))
+    (Long/parseLong value)
+    value))
+
 (defn- decrypt [config]
   "Decrypt all values in a config map"
   (into {} (for [[k v] config]
-             [k (decrypt-value k v (:aws-region-id config))])))
+             [k (-> (decrypt-value k v (:aws-region-id config))
+                    (to-real-boolean)
+                    (to-real-number))])))
 
 (defn load-configuration
   "Loads configuration options from various places."

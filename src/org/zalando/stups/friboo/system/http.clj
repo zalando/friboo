@@ -1,4 +1,4 @@
-(ns org.zalando.friboo.system.http
+(ns org.zalando.stups.friboo.system.http
   (:require [io.sarnowski.swagger1st.core :as s1st]
             [ring.middleware.params :refer [wrap-params]]
             [ring.adapter.jetty :as jetty]
