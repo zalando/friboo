@@ -9,7 +9,7 @@
   "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
    are unique in general and flattens them for easier access."
   [request]
-  (reduce merge (:parameters request)))
+  (apply merge (map (fn [[k v]] v) (:parameters request))))
 
 (defn start-component
   "Starts the http component."
