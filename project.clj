@@ -3,7 +3,7 @@
   :url "https://github.com/zalando-stups/friboo"
 
   :license {:name "Apache 2.0"
-            :url "http://www.apache.org/licenses/LICENSE-2.0"}
+            :url  "http://www.apache.org/licenses/LICENSE-2.0"}
 
   :min-lein-version "2.0.0"
 
@@ -19,8 +19,15 @@
                  [org.apache.logging.log4j/log4j-1.2-api "2.2"]
                  [org.apache.logging.log4j/log4j-jul "2.2"]
                  [com.jolbox/bonecp "0.8.0.RELEASE"]
+                 [org.flywaydb/flyway-core "3.2"]
                  [amazonica "0.3.19"]
                  [org.clojure/data.codec "0.1.0"]]
+
+  :pom-addition [:developers
+                 [:developer {:id "sarnowski"}
+                  [:name "Tobias Sarnowski"]
+                  [:email "tobias.sarnowski@zalando.de"]
+                  [:role "Maintainer"]]]
 
   :deploy-repositories [["releases" :clojars]]
   :signing {:gpg-key "tobias.sarnowski@zalando.de"})

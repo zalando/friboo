@@ -4,9 +4,10 @@
             [ring.util.response :as r]
             [com.stuartsierra.component :as component]
             [clojure.tools.logging :as log])
-  (:import (com.jolbox.bonecp BoneCPDataSource)))
+  (:import (com.jolbox.bonecp BoneCPDataSource)
+           (org.flywaydb.core Flyway)))
 
-(defn start-component [component]
+(defn start-component [component auto-migration?]
   (if (:datasource component)
     (do
       (log/debug "skipping start of DB connection pool; already running")
@@ -15,6 +16,13 @@
     (do
       (let [configuration (:configuration component)
             jdbc-url (str "jdbc:" (:subprotocol configuration) ":" (:subname configuration))]
+
+        (when auto-migration?
+          (log/info "initiating automatic DB migration for" jdbc-url)
+          (doto (Flyway.)
+            (.setDataSource jdbc-url (:user configuration) (:password configuration) (make-array String 0))
+            (.migrate)))
+
         (log/info "starting DB connection pool for" jdbc-url)
         (let [partitions (or (:partitions configuration) 3)
               min-pool (or (:min-pool configuration) 5)
@@ -45,7 +53,8 @@
 
 (defmacro def-db-component
   "Defines a new database component."
-  [name]
+  [name & {:keys [auto-migration?]
+           :or {auto-migration? false}}]
   ; 'configuration' must be provided during initialization
   ; 'datasource' is the internal state
   ; HINT: this component is itself a valid db-spec as its a map with the key 'datasource'
@@ -53,7 +62,7 @@
      component/Lifecycle
 
      (start [this#]
-       (start-component this#))
+       (start-component this# ~auto-migration?))
 
      (stop [this#]
        (stop-component this#))))
