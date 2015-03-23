@@ -25,6 +25,24 @@
   [request]
   (apply merge (map (fn [[k v]] v) (:parameters request))))
 
+(defn add-ip-log-context
+  "Adds the :client context to log statements."
+  [handler]
+  (fn [request]
+    (log/log-with
+      ; TODO make loadbalancer/proxy aware (forward-for header)
+      {:ip (:remote-addr request)}
+      (handler request))))
+
+(defn add-user-log-context
+  "Adds the :user context to log statements."
+  [handler]
+  (fn [request]
+    (log/log-with
+      ; TODO add user information, noop currently
+      {}
+      (handler request))))
+
 (defn start-component
   "Starts the http component."
   [component definition mapper-fn]
@@ -36,13 +54,15 @@
     (do
       (log/info "starting HTTP daemon for API" definition)
       (let [handler (-> (s1st/swagger-executor :mappers [mapper-fn])
+                        (add-user-log-context)
                         (s1st/swagger-security)
                         (s1st/swagger-validator)
                         (s1st/swagger-parser)
                         (s1st/swagger-discovery)
                         (s1st/swagger-mapper ::s1st/yaml-cp definition
                                              :cors-origin (-> component :configuration :cors-origin))
-                        (wrap-params))]
+                        (wrap-params)
+                        (add-ip-log-context))]
 
         (assoc component :httpd (jetty/run-jetty handler (merge (:configuration component)
                                                                 {:join? false})))))))
