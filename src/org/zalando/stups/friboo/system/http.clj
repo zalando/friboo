@@ -47,17 +47,24 @@
       {}
       (handler request))))
 
+(def default-error
+  (json/write-str
+    {:message "Internal Server Error"}))
+
 (defn- format-undefined-error [^Exception e]
-  (-> (r/response nil)
+  (-> (r/response default-error)
       (ring/content-type-json)
       (r/status 500)))
 
 (defn- format-defined-error [^ExceptionInfo e]
-  (let [data (assoc (ex-data e) :title (.getMessage e))]
+  (let [data (-> (ex-data e)
+                 (assoc :message (.getMessage e)))]
     (if-let [http-code (:http-code data)]
-      (-> (r/response (json/write-str data))
-          (ring/content-type-json)
-          (r/status http-code))
+      (let [data (-> data
+                     (dissoc :http-code))]
+        (-> (r/response (json/write-str data))
+            (ring/content-type-json)
+            (r/status http-code)))
       (format-undefined-error e))))
 
 (defn exceptions-to-json [handler]
