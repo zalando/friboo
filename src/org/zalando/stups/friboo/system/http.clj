@@ -17,7 +17,7 @@
             [ring.middleware.params :refer [wrap-params]]
             [ring.adapter.jetty :as jetty]
             [com.stuartsierra.component :refer [Lifecycle]]
-            [clojure.tools.logging :as log]))
+            [org.zalando.stups.friboo.log :as log]))
 
 (defn flatten-parameters
   "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
@@ -30,7 +30,7 @@
   [component definition mapper-fn]
   (if (:httpd component)
     (do
-      (log/debug "skipping start of HTTP; already running")
+      (log/debug "Skipping start of HTTP; already running.")
       component)
 
     (do
@@ -52,11 +52,11 @@
   [component]
   (if-not (:httpd component)
     (do
-      (log/debug "skipping stop of HTTP; not running")
+      (log/debug "Skipping stop of HTTP; not running.")
       component)
 
     (do
-      (log/info "stopping HTTP daemon")
+      (log/info "Stopping HTTP daemon.")
       (.stop (:httpd component))
       (assoc component :httpd nil))))
 

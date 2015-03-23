@@ -14,7 +14,7 @@
 
 (ns org.zalando.stups.friboo.config
   (:require [environ.core :refer [env]]
-            [clojure.tools.logging :as log]
+            [org.zalando.stups.friboo.log :as log]
             [clojure.string :refer [replace-first]]
             [amazonica.aws.kms :as kms]
             [clojure.data.codec.base64 :as b64]))
@@ -35,7 +35,7 @@
 (defn- parse-namespaces [config namespaces]
   (let [namespaced-configs (into {} (map (juxt identity (partial namespaced config)) namespaces))]
     (doseq [[namespace namespaced-config] namespaced-configs]
-      (log/debug "Destructured" namespace "into" namespaced-config))
+      (log/debug "Destructured %s into %s." namespace namespaced-config))
     namespaced-configs))
 
 (defn- get-kms-ciphertext-blob [s]
@@ -60,7 +60,7 @@
   "Decrypt a single value, returns original value if it's not encrypted"
   (if (and (string? value) (.startsWith value aws-kms-prefix))
     (do
-      (log/info "decrypting configuration" key)
+      (log/info "Decrypting configuration %s." key)
       (decrypt-value-with-aws-kms value aws-region-id))
     value))
 

@@ -17,14 +17,14 @@
             [ring.middleware.params :refer [wrap-params]]
             [ring.util.response :as r]
             [com.stuartsierra.component :as component]
-            [clojure.tools.logging :as log])
+            [org.zalando.stups.friboo.log :as log])
   (:import (com.jolbox.bonecp BoneCPDataSource)
            (org.flywaydb.core Flyway)))
 
 (defn start-component [component auto-migration?]
   (if (:datasource component)
     (do
-      (log/debug "skipping start of DB connection pool; already running")
+      (log/debug "Skipping start of DB connection pool; already running.")
       component)
 
     (do
@@ -32,12 +32,12 @@
             jdbc-url (str "jdbc:" (:subprotocol configuration) ":" (:subname configuration))]
 
         (when auto-migration?
-          (log/info "initiating automatic DB migration for" jdbc-url)
+          (log/info "Initiating automatic DB migration for %s." jdbc-url)
           (doto (Flyway.)
             (.setDataSource jdbc-url (:user configuration) (:password configuration) (make-array String 0))
             (.migrate)))
 
-        (log/info "starting DB connection pool for" jdbc-url)
+        (log/info "Starting DB connection pool for %s." jdbc-url)
         (let [partitions (or (:partitions configuration) 3)
               min-pool (or (:min-pool configuration) 5)
               max-pool (or (:max-pool configuration) 50)
@@ -57,11 +57,11 @@
 (defn stop-component [component]
   (if-not (:datasource component)
     (do
-      (log/debug "skipping stop of DB connection pool; not running")
+      (log/debug "Skipping stop of DB connection pool; not running.")
       component)
 
     (do
-      (log/info "stopping DB connection pool")
+      (log/info "Stopping DB connection pool.")
       (.close (:datasource component))
       (assoc component :pool nil))))
 
