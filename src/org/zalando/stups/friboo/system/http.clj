@@ -17,7 +17,11 @@
             [ring.middleware.params :refer [wrap-params]]
             [ring.adapter.jetty :as jetty]
             [com.stuartsierra.component :refer [Lifecycle]]
-            [org.zalando.stups.friboo.log :as log]))
+            [org.zalando.stups.friboo.log :as log]
+            [ring.util.response :as r]
+            [org.zalando.stups.friboo.ring :as ring]
+            [clojure.data.json :as json])
+  (:import (clojure.lang ExceptionInfo)))
 
 (defn flatten-parameters
   "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
@@ -25,7 +29,7 @@
   [request]
   (apply merge (map (fn [[k v]] v) (:parameters request))))
 
-(defn add-ip-log-context
+(defn- add-ip-log-context
   "Adds the :client context to log statements."
   [handler]
   (fn [request]
@@ -34,7 +38,7 @@
       {:ip (:remote-addr request)}
       (handler request))))
 
-(defn add-user-log-context
+(defn- add-user-log-context
   "Adds the :user context to log statements."
   [handler]
   (fn [request]
@@ -42,6 +46,29 @@
       ; TODO add user information, noop currently
       {}
       (handler request))))
+
+(defn- format-undefined-error [^Exception e]
+  (-> (r/response nil)
+      (ring/content-type-json)
+      (r/status 500)))
+
+(defn- format-defined-error [^ExceptionInfo e]
+  (let [data (assoc (ex-data e) :title (.getMessage e))]
+    (if-let [http-code (:http-code data)]
+      (-> (r/response (json/write-str data))
+          (ring/content-type-json)
+          (r/status http-code))
+      (format-undefined-error e))))
+
+(defn exceptions-to-json [handler]
+  (fn [request]
+    (try
+      (handler request)
+      (catch ExceptionInfo e
+        (format-defined-error e))
+      (catch Exception e
+        (log/error e "Undefined exception during request execution: %s" (str e))
+        (format-undefined-error e)))))
 
 (defn start-component
   "Starts the http component."
@@ -62,6 +89,7 @@
                         (s1st/swagger-mapper ::s1st/yaml-cp definition
                                              :cors-origin (-> component :configuration :cors-origin))
                         (wrap-params)
+                        (exceptions-to-json)
                         (add-ip-log-context))]
 
         (assoc component :httpd (jetty/run-jetty handler (merge (:configuration component)
