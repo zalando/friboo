@@ -7,13 +7,13 @@ A utility library to write microservices in Clojure. The library provides some c
 
 Dependency:
 
-[![Clojars Project](http://clojars.org/org.zalando/friboo/latest-version.svg)](http://clojars.org/org.zalando/friboo)
+[![Clojars Project](http://clojars.org/org.zalando.stups/friboo/latest-version.svg)](http://clojars.org/org.zalando.stups/friboo)
 
 Most simple case:
 
 ```clojure
 (ns examples
-  (:require [org.zalando.friboo.system :as system]
+  (:require [org.zalando.stups.friboo.system :as system]
             [com.stuartsierra.component :as component])
   (:gen-class))
 
@@ -40,7 +40,7 @@ API functions require.
 
 ```clojure
 (ns myapi
-  (:require [org.zalando.friboo.system.http :refer [def-http-component]))
+  (:require [org.zalando.stups.friboo.system.http :refer [def-http-component]))
 
 (def-http-component MyAPI "my-api.yaml" [db scheduler])
 
@@ -70,7 +70,7 @@ compliant data structure, backed by a connection pool.
 
 ```clojure
 (ns mydb
-  (:require [org.zalando.friboo.system.db :refer [def-db-component]))
+  (:require [org.zalando.stups.friboo.system.db :refer [def-db-component]))
 
 (def-db-component MyDB)
 ```
