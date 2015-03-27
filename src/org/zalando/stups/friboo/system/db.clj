@@ -13,10 +13,7 @@
 ; limitations under the License.
 
 (ns org.zalando.stups.friboo.system.db
-  (:require [io.sarnowski.swagger1st.core :as s1st]
-            [ring.middleware.params :refer [wrap-params]]
-            [ring.util.response :as r]
-            [com.stuartsierra.component :as component]
+  (:require [com.stuartsierra.component :as component]
             [org.zalando.stups.friboo.log :as log])
   (:import (com.jolbox.bonecp BoneCPDataSource)
            (org.flywaydb.core Flyway)))

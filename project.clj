@@ -21,7 +21,8 @@
                  [com.jolbox/bonecp "0.8.0.RELEASE"]
                  [org.flywaydb/flyway-core "3.2"]
                  [amazonica "0.3.19"]
-                 [org.clojure/data.codec "0.1.0"]]
+                 [org.clojure/data.codec "0.1.0"]
+                 [overtone/at-at "1.2.0"]]
 
   :pom-addition [:developers
                  [:developer {:id "sarnowski"}
