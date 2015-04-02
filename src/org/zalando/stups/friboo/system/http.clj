@@ -99,8 +99,11 @@
                         (exceptions-to-json)
                         (add-ip-log-context))]
 
-        (assoc component :httpd (jetty/run-jetty handler (merge (:configuration component)
-                                                                {:join? false})))))))
+        (if (:no-listen? (:configuration component))
+          (assoc component :handler handler)
+          (merge component {:httpd   (jetty/run-jetty handler (merge (:configuration component)
+                                                                     {:join? false}))
+                            :handler handler}))))))
 
 (defn stop-component
   "Stops the http component."
