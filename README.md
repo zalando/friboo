@@ -7,7 +7,9 @@ A utility library to write microservices in Clojure. The library provides some c
 
 Dependency:
 
-[![Clojars Project](http://clojars.org/org.zalando.stups/friboo/latest-version.svg)](http://clojars.org/org.zalando.stups/friboo)
+    [org.zalando.stups/friboo <latest version>]
+
+from Maven central.
 
 Most simple case:
 

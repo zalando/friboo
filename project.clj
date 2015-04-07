@@ -3,12 +3,15 @@
   :url "https://github.com/zalando-stups/friboo"
 
   :license {:name "Apache 2.0"
-            :url  "http://www.apache.org/licenses/LICENSE-2.0"}
+            :url  "http://www.apache.org/licenses/LICENSE-2.0"
+            :distribution :repo}
+
+  :scm {:url "git@github.com:zalando-stups/friboo.git"}
 
   :min-lein-version "2.0.0"
 
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [io.sarnowski/swagger1st "0.5.0"]
+                 [io.sarnowski/swagger1st "0.6.0"]
                  [com.stuartsierra/component "0.2.3"]
                  [ring "1.3.2"]
                  [environ "1.0.0"]
@@ -28,7 +31,9 @@
                  [:developer {:id "sarnowski"}
                   [:name "Tobias Sarnowski"]
                   [:email "tobias.sarnowski@zalando.de"]
-                  [:role "Maintainer"]]]
+                  [:role "Maintainer"]
+                  [:timezone "+1"]]]
 
-  :deploy-repositories [["releases" :clojars]]
-  :signing {:gpg-key "tobias.sarnowski@zalando.de"})
+  :signing {:gpg-key "tobias.sarnowski@zalando.de"}
+  :deploy-repositories {"releases" {:url "https://oss.sonatype.org/service/local/staging/deploy/maven2/" :creds :gpg}
+                        "snapshots" {:url "https://oss.sonatype.org/content/repositories/snapshots/" :creds :gpg}})
