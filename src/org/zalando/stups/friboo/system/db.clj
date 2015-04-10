@@ -14,9 +14,12 @@
 
 (ns org.zalando.stups.friboo.system.db
   (:require [com.stuartsierra.component :as component]
-            [org.zalando.stups.friboo.log :as log])
+            [org.zalando.stups.friboo.log :as log]
+            [clojure.data.json :as json])
   (:import (com.jolbox.bonecp BoneCPDataSource)
-           (org.flywaydb.core Flyway)))
+           (org.flywaydb.core Flyway)
+           (java.sql Timestamp)
+           (java.io PrintWriter)))
 
 (defn start-component [component auto-migration?]
   (if (:datasource component)
@@ -77,3 +80,13 @@
 
      (stop [this#]
        (stop-component this#))))
+
+; provide json serialization
+(defn- serialize-sql-timestamp
+  "Serializes a sql timestamp to json."
+  [^Timestamp timestamp #^PrintWriter out]
+  (.print out (json/write-str (str (int (/ (.getTime timestamp) 1000))))))
+
+; add json capability to java.sql.Timestamp
+(extend Timestamp json/JSONWriter
+  {:-write serialize-sql-timestamp})

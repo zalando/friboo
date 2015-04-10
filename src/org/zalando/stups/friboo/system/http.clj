@@ -14,6 +14,7 @@
 
 (ns org.zalando.stups.friboo.system.http
   (:require [io.sarnowski.swagger1st.core :as s1st]
+            [io.sarnowski.swagger1st.security :as s1stsec]
             [ring.middleware.params :refer [wrap-params]]
             [ring.adapter.jetty :as jetty]
             [com.stuartsierra.component :refer [Lifecycle]]
@@ -87,9 +88,12 @@
 
     (do
       (log/info "starting HTTP daemon for API" definition)
-      (let [handler (-> (s1st/swagger-executor :mappers [mapper-fn])
+      (let [get-oauth2-config (fn [] {:tokeninfo-url (get-in component [:configuration :tokeninfo-url])})
+            handler (-> (s1st/swagger-executor :mappers [mapper-fn])
                         (add-user-log-context)
-                        (s1st/swagger-security)
+                        (s1st/swagger-security {"oauth2" (s1stsec/oauth-2.0
+                                                           get-oauth2-config
+                                                           s1stsec/tokeninfo-scope-attribute)})
                         (s1st/swagger-validator)
                         (s1st/swagger-parser)
                         (s1st/swagger-discovery)
