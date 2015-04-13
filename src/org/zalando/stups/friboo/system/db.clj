@@ -15,6 +15,7 @@
 (ns org.zalando.stups.friboo.system.db
   (:require [com.stuartsierra.component :as component]
             [org.zalando.stups.friboo.log :as log]
+            [org.zalando.stups.friboo.config :refer [require-config]]
             [clojure.data.json :as json])
   (:import (com.jolbox.bonecp BoneCPDataSource)
            (org.flywaydb.core Flyway)
@@ -29,12 +30,12 @@
 
     (do
       (let [configuration (:configuration component)
-            jdbc-url (str "jdbc:" (:subprotocol configuration) ":" (:subname configuration))]
+            jdbc-url (str "jdbc:" (require-config configuration :subprotocol) ":" (require-config configuration :subname))]
 
         (when auto-migration?
           (log/info "Initiating automatic DB migration for %s." jdbc-url)
           (doto (Flyway.)
-            (.setDataSource jdbc-url (:user configuration) (:password configuration) (make-array String 0))
+            (.setDataSource jdbc-url (require-config configuration :user) (require-config configuration :password) (make-array String 0))
             (.migrate)))
 
         (log/info "Starting DB connection pool for %s." jdbc-url)
@@ -43,8 +44,8 @@
               max-pool (or (:max-pool configuration) 50)
               datasource (doto (BoneCPDataSource.)
                            (.setJdbcUrl jdbc-url)
-                           (.setUsername (:user configuration))
-                           (.setPassword (:password configuration))
+                           (.setUsername (require-config configuration :user))
+                           (.setPassword (require-config configuration :password))
                            (.setMinConnectionsPerPartition (inc (int (/ min-pool partitions))))
                            (.setMaxConnectionsPerPartition (inc (int (/ max-pool partitions))))
                            (.setPartitionCount partitions)

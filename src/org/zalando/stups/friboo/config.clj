@@ -19,6 +19,14 @@
             [amazonica.aws.kms :as kms]
             [clojure.data.codec.base64 :as b64]))
 
+(defn require-config
+  "Helper function to fail of a configuration value is missing."
+  [configuration key]
+  (let [value (get configuration key)]
+    (if (empty? value)
+      (throw (IllegalArgumentException. (str "Configuration " key " is required but is missing.")))
+      value)))
+
 (def aws-kms-prefix "aws:kms:")
 
 (defn- strip [namespace k]

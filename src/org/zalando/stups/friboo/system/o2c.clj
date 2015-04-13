@@ -1,5 +1,6 @@
 (ns org.zalando.stups.friboo.system.o2c
-  (:require [com.stuartsierra.component :as component]
+  (:require [org.zalando.stups.friboo.config :refer [require-config]]
+            [com.stuartsierra.component :as component]
             [clj-http.lite.client :as client]))
 
 (defprotocol Client
@@ -36,8 +37,8 @@
   component/Lifecycle
 
   (start [this]
-    (let [{:keys [access-token-url scopes]} configuration
-          scopes (split-with #{","} scopes)
+    (let [access-token-url (require-config configuration :access-token-url)
+          scopes (split-with #{","} (require-config configuration :scopes))
           access-token (atom (get-access-token nil access-token-url @credentials scopes))]
       ; TODO keep access token constantly up to date with a job every X seconds
       (assoc this :access-token access-token)))

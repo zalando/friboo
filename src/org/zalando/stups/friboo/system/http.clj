@@ -19,6 +19,7 @@
             [ring.adapter.jetty :as jetty]
             [com.stuartsierra.component :refer [Lifecycle]]
             [org.zalando.stups.friboo.log :as log]
+            [org.zalando.stups.friboo.config :refer [require-config]]
             [ring.util.response :as r]
             [org.zalando.stups.friboo.ring :as ring]
             [clojure.data.json :as json])
@@ -81,14 +82,15 @@
 (defn start-component
   "Starts the http component."
   [component definition mapper-fn]
-  (if (:httpd component)
+  (if (:handler component)
     (do
       (log/debug "Skipping start of HTTP; already running.")
       component)
 
     (do
       (log/info "starting HTTP daemon for API" definition)
-      (let [get-oauth2-config (fn [] {:tokeninfo-url (get-in component [:configuration :tokeninfo-url])})
+      (let [configuration (:configuration component)
+            get-oauth2-config (fn [] {:tokeninfo-url (require-config configuration :tokeninfo-url)})
             handler (-> (s1st/swagger-executor :mappers [mapper-fn])
                         (add-user-log-context)
                         (s1st/swagger-security {"oauth2" (s1stsec/oauth-2.0
@@ -98,21 +100,22 @@
                         (s1st/swagger-parser)
                         (s1st/swagger-discovery)
                         (s1st/swagger-mapper ::s1st/yaml-cp definition
-                                             :cors-origin (-> component :configuration :cors-origin))
+                                             :cors-origin (:cors-origin configuration))
                         (wrap-params)
                         (exceptions-to-json)
                         (add-ip-log-context))]
 
-        (if (:no-listen? (:configuration component))
-          (assoc component :handler handler)
-          (merge component {:httpd   (jetty/run-jetty handler (merge (:configuration component)
+        (if (:no-listen? configuration)
+          (merge component {:httpd   nil
+                            :handler handler})
+          (merge component {:httpd   (jetty/run-jetty handler (merge configuration
                                                                      {:join? false}))
                             :handler handler}))))))
 
 (defn stop-component
   "Stops the http component."
   [component]
-  (if-not (:httpd component)
+  (if-not (:handler component)
     (do
       (log/debug "Skipping stop of HTTP; not running.")
       component)
@@ -120,7 +123,8 @@
     (do
       (log/info "Stopping HTTP daemon.")
       (.stop (:httpd component))
-      (assoc component :httpd nil))))
+      (merge component {:httpd   nil
+                        :handler nil}))))
 
 (defmacro def-http-component
   "Creates an http component with your name and all your given dependencies. Those dependencies will also be available

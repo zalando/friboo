@@ -1,6 +1,7 @@
 (ns org.zalando.stups.friboo.system.cron
   (:require [com.stuartsierra.component :as component]
             [org.zalando.stups.friboo.log :as log]
+            [org.zalando.stups.friboo.config :refer [require-config]]
             [overtone.at-at :as at])
   (:import (overtone.at_at RecurringJob ScheduledJob)))
 

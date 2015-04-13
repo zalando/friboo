@@ -1,6 +1,7 @@
 (ns org.zalando.stups.friboo.system.credentials
   (:require [com.stuartsierra.component :as component]
             [org.zalando.stups.friboo.log :as log]
+            [org.zalando.stups.friboo.config :refer [require-config]]
             [clojure.java.io :as io]
             [clojure-watch.core :refer [start-watch]]
             [clojure.data.json :as json])
@@ -35,7 +36,7 @@
   component/Lifecycle
 
   (start [this]
-    (let [^File file (io/file (:file configuration))
+    (let [^File file (io/file (require-config configuration :file))
           credentials (atom nil)]
       (log/info "Watching %s for credentials." file)
       (check-file file credentials)
