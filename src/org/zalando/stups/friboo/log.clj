@@ -19,7 +19,7 @@
 (defn format-value
   "Formats dynamic information for logs."
   [value]
-  (str "[" (json/write-str value) "]"))
+  (str "[" (json/write-str value :escape-slash false) "]"))
 
 (defn format-values
   "Formats dynamic information for logs."

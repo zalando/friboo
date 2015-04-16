@@ -91,19 +91,19 @@
       (log/info "starting HTTP daemon for API" definition)
       (let [configuration (:configuration component)
             get-oauth2-config (fn [] {:tokeninfo-url (require-config configuration :tokeninfo-url)})
-            handler (-> (s1st/swagger-executor :mappers [mapper-fn])
-                        (add-user-log-context)
+            handler (-> (s1st/swagger-context ::s1st/yaml-cp definition)
+                        (s1st/swagger-ring add-ip-log-context)
+                        (s1st/swagger-ring exceptions-to-json)
+                        (s1st/swagger-ring wrap-params)
+                        (s1st/swagger-mapper :cors-origin (:cors-origin configuration))
+                        (s1st/swagger-discovery)
+                        (s1st/swagger-parser)
+                        (s1st/swagger-validator)
                         (s1st/swagger-security {"oauth2" (s1stsec/oauth-2.0
                                                            get-oauth2-config
                                                            s1stsec/tokeninfo-scope-attribute)})
-                        (s1st/swagger-validator)
-                        (s1st/swagger-parser)
-                        (s1st/swagger-discovery)
-                        (s1st/swagger-mapper ::s1st/yaml-cp definition
-                                             :cors-origin (:cors-origin configuration))
-                        (wrap-params)
-                        (exceptions-to-json)
-                        (add-ip-log-context))]
+                        (s1st/swagger-ring add-user-log-context)
+                        (s1st/swagger-executor :mappers [mapper-fn]))]
 
         (if (:no-listen? configuration)
           (merge component {:httpd   nil
