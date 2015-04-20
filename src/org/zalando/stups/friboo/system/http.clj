@@ -23,7 +23,8 @@
             [ring.util.response :as r]
             [org.zalando.stups.friboo.ring :as ring]
             [clojure.data.json :as json])
-  (:import (clojure.lang ExceptionInfo)))
+  (:import (clojure.lang ExceptionInfo)
+           (org.apache.http.protocol HTTP)))
 
 (defn flatten-parameters
   "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
@@ -48,6 +49,13 @@
       ; TODO add user information, noop currently
       {}
       (handler request))))
+
+(defn- add-cors-allow-headers
+  "Adds Access-Control-Allow-Headers header for common headers you might need."
+  [handler]
+  (fn [request]
+    (let [response (handler request)]
+      (r/header response "Access-Control-Allow-Headers" "Origin, X-Requested-With, Content-Type, Accept, Authorization"))))
 
 (def default-error
   (json/write-str
@@ -79,12 +87,22 @@
         (log/error e "Undefined exception during request execution: %s" (str e))
         (format-undefined-error e)))))
 
+(defn health-endpoint
+  "Adds a /.well-known/health endpoint for load balancer tests."
+  [handler]
+  (fn [request]
+    (if (= (:uri request) "/.well-known/health")
+      (-> (r/response "{\"health\": true}")
+          (ring/content-type-json)
+          (r/status 200))
+      (handler request))))
+
 (defn start-component
   "Starts the http component."
   [component definition mapper-fn]
   (if (:handler component)
     (do
-      (log/debug "Skipping start of HTTP; already running.")
+      (log/debug "Skipping start of HTTP ; already running.")
       component)
 
     (do
@@ -94,7 +112,9 @@
             handler (-> (s1st/swagger-context ::s1st/yaml-cp definition)
                         (s1st/swagger-ring add-ip-log-context)
                         (s1st/swagger-ring exceptions-to-json)
+                        (s1st/swagger-ring health-endpoint)
                         (s1st/swagger-ring wrap-params)
+                        (s1st/swagger-ring add-cors-allow-headers)
                         (s1st/swagger-mapper :cors-origin (:cors-origin configuration))
                         (s1st/swagger-discovery)
                         (s1st/swagger-parser)
