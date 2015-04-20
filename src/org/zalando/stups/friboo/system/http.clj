@@ -57,6 +57,13 @@
     (let [response (handler request)]
       (r/header response "Access-Control-Allow-Headers" "Origin, X-Requested-With, Content-Type, Accept, Authorization"))))
 
+(defn- add-hsts-header
+  "Adds Strict-Transport-Security for https only."
+  [handler]
+  (fn [request]
+    (let [response (handler request)]
+      (r/header response "Strict-Transport-Security" "max-age=10886400"))))
+
 (def default-error
   (json/write-str
     {:message "Internal Server Error"}))
@@ -111,6 +118,7 @@
             get-oauth2-config (fn [] {:tokeninfo-url (require-config configuration :tokeninfo-url)})
             handler (-> (s1st/swagger-context ::s1st/yaml-cp definition)
                         (s1st/swagger-ring add-ip-log-context)
+                        (s1st/swagger-ring add-hsts-header)
                         (s1st/swagger-ring exceptions-to-json)
                         (s1st/swagger-ring health-endpoint)
                         (s1st/swagger-ring wrap-params)
