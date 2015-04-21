@@ -28,12 +28,17 @@
                  [overtone/at-at "1.2.0"]
                  [clojure-watch "0.1.10"]]
 
+  :plugins [[lein-cloverage "1.0.2"]
+            [lein-kibit "0.0.8"]]
+
   :pom-addition [:developers
                  [:developer {:id "sarnowski"}
                   [:name "Tobias Sarnowski"]
                   [:email "tobias.sarnowski@zalando.de"]
                   [:role "Maintainer"]
                   [:timezone "+1"]]]
+
+  :aliases {"cloverage" ["with-profile" "test" "cloverage"]}
 
   :signing {:gpg-key "tobias.sarnowski@zalando.de"}
   :deploy-repositories {"releases" {:url "https://oss.sonatype.org/service/local/staging/deploy/maven2/" :creds :gpg}

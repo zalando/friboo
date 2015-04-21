@@ -77,8 +77,7 @@
   (let [data (-> (ex-data e)
                  (assoc :message (.getMessage e)))]
     (if-let [http-code (:http-code data)]
-      (let [data (-> data
-                     (dissoc :http-code))]
+      (let [data (dissoc data :http-code)]
         (-> (r/response (json/write-str data))
             (ring/content-type-json)
             (r/status http-code)))

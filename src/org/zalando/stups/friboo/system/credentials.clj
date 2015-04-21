@@ -24,7 +24,7 @@
   (try
     (let [content (slurp file)
           data (json/read-str content)]
-      (when (and data (not (empty? data)) (not (= data @credentials))
+      (when (and data (not (empty? data)) (not= data @credentials)
         (reset! credentials data)
         (log/info "New credentials found for %s." (select-keys data ["application_username" "client_id"])))))
     (catch Exception e
