@@ -29,6 +29,16 @@
 
 (def aws-kms-prefix "aws:kms:")
 
+(defn- is-sensitive-key [k]
+  (let [kname (name k)]
+       (or (.contains kname "pass")
+           (.contains kname "private")
+           (.contains kname "secret"))))
+
+(defn mask [config]
+  "Mask sensitive information such as passwords"
+  (into {} (for [[k v] config] [k (if (is-sensitive-key k) "MASKED" v)])))
+
 (defn- strip [namespace k]
   (keyword (replace-first (name k) (str (name namespace) "-") "")))
 
@@ -40,10 +50,10 @@
                             (.startsWith (name k) (str (name namespace) "")))
                           config)))))
 
-(defn- parse-namespaces [config namespaces]
+(defn parse-namespaces [config namespaces]
   (let [namespaced-configs (into {} (map (juxt identity (partial namespaced config)) namespaces))]
     (doseq [[namespace namespaced-config] namespaced-configs]
-      (log/debug "Destructured %s into %s." namespace namespaced-config))
+      (log/debug "Destructured %s into %s." namespace (mask namespaced-config)))
     namespaced-configs))
 
 (defn- get-kms-ciphertext-blob [s]
@@ -54,7 +64,7 @@
       b64/decode
       java.nio.ByteBuffer/wrap))
 
-(defn- decrypt-value-with-aws-kms [value aws-region-id]
+(defn decrypt-value-with-aws-kms [value aws-region-id]
   "Use AWS Key Management Service to decrypt the given string (must be encoded as Base64)"
   (->> value
        get-kms-ciphertext-blob
@@ -89,7 +99,7 @@
     (Long/parseLong value)
     value))
 
-(defn- decrypt [config]
+(defn decrypt [config]
   "Decrypt all values in a config map"
   (into {} (for [[k v] config]
              [k (-> (decrypt-value k v (:aws-region-id config))
