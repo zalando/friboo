@@ -3,6 +3,9 @@
 A utility library to write microservices in Clojure. The library provides some components that can be used with the
 [component lifecycle framework](https://github.com/stuartsierra/component).
 
+Friboo encourages the Swagger API-first approach where the REST API is defined as YAML.
+See the [swagger1st library](https://github.com/sarnowski/swagger1st).
+
 ## Usage
 
 Dependency:
@@ -88,7 +91,12 @@ TODO link to jdbc documentation, pool specific configuration like min- and max-p
 
 ## Real-world usage
 
-TODO link to actual implementations like Kio
+There are multiple examples of real-world usages among the STUPS components:
+
+* [Kio application registry](https://github.com/zalando-stups/kio) (REST service with DB)
+* [Pier One Docker registry](https://github.com/zalando-stups/pierone) (REST service with DB and S3 backend) 
+* [Even SSH access granting service](https://github.com/zalando-stups/even) (REST service with DB)
+* [Hello world example](https://github.com/hjacobs/friboo-hello-world) (very simple REST service without DB)
 
 TODO HINT: set java.util.logging.manager= org.apache.logging.log4j.jul.LogManager to have proper JUL logging
 
