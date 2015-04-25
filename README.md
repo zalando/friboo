@@ -1,5 +1,7 @@
 # friboo
 
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.zalando.stups/friboo/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.zalando.stups/friboo)
+
 A utility library to write microservices in Clojure. The library provides some components that can be used with the
 [component lifecycle framework](https://github.com/stuartsierra/component).
 
