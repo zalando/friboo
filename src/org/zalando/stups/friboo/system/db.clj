@@ -20,7 +20,8 @@
   (:import (com.jolbox.bonecp BoneCPDataSource)
            (org.flywaydb.core Flyway)
            (java.sql Timestamp)
-           (java.io PrintWriter)))
+           (java.io PrintWriter)
+           (java.text SimpleDateFormat)))
 
 (defn start-component [component auto-migration?]
   (if (:datasource component)
@@ -69,7 +70,7 @@
 (defmacro def-db-component
   "Defines a new database component."
   [name & {:keys [auto-migration?]
-           :or {auto-migration? false}}]
+           :or   {auto-migration? false}}]
   ; 'configuration' must be provided during initialization
   ; 'datasource' is the internal state
   ; HINT: this component is itself a valid db-spec as its a map with the key 'datasource'
@@ -82,11 +83,15 @@
      (stop [this#]
        (stop-component this#))))
 
+(def iso-format "yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+
 ; provide json serialization
 (defn- serialize-sql-timestamp
   "Serializes a sql timestamp to json."
   [^Timestamp timestamp #^PrintWriter out]
-  (.print out (json/write-str (str (int (/ (.getTime timestamp) 1000))))))
+  (.print out (-> (SimpleDateFormat. iso-format)
+                  (.format timestamp)
+                  (json/write-str))))
 
 ; add json capability to java.sql.Timestamp
 (extend Timestamp json/JSONWriter
