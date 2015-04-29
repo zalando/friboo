@@ -14,17 +14,16 @@
 
 (ns org.zalando.stups.friboo.system.http
   (:require [io.sarnowski.swagger1st.core :as s1st]
-            [io.sarnowski.swagger1st.security :as s1stsec]
+            [io.sarnowski.swagger1st.executor :as s1stexec]
+            [io.sarnowski.swagger1st.util.api :as s1stapi]
+            [io.sarnowski.swagger1st.util.security :as s1stsec]
             [ring.middleware.params :refer [wrap-params]]
             [ring.adapter.jetty :as jetty]
             [com.stuartsierra.component :refer [Lifecycle]]
             [org.zalando.stups.friboo.log :as log]
             [org.zalando.stups.friboo.config :refer [require-config]]
             [ring.util.response :as r]
-            [org.zalando.stups.friboo.ring :as ring]
-            [clojure.data.json :as json])
-  (:import (clojure.lang ExceptionInfo)
-           (org.apache.http.protocol HTTP)))
+            [org.zalando.stups.friboo.ring :as ring]))
 
 (defn flatten-parameters
   "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
@@ -32,6 +31,7 @@
   [request]
   (apply merge (map (fn [[k v]] v) (:parameters request))))
 
+; TODO doesn't work currently
 (defn- add-ip-log-context
   "Adds the :client context to log statements."
   [handler]
@@ -41,6 +41,7 @@
       {:ip (:remote-addr request)}
       (handler request))))
 
+; TODO doesn't work currently
 (defn- add-user-log-context
   "Adds the :user context to log statements."
   [handler]
@@ -49,49 +50,6 @@
       ; TODO add user information, noop currently
       {}
       (handler request))))
-
-(defn- add-cors-allow-headers
-  "Adds Access-Control-Allow-Headers header for common headers you might need."
-  [handler]
-  (fn [request]
-    (let [response (handler request)]
-      (r/header response "Access-Control-Allow-Headers" "Origin, X-Requested-With, Content-Type, Accept, Authorization"))))
-
-(defn- add-hsts-header
-  "Adds Strict-Transport-Security for https only."
-  [handler]
-  (fn [request]
-    (let [response (handler request)]
-      (r/header response "Strict-Transport-Security" "max-age=10886400"))))
-
-(def default-error
-  (json/write-str
-    {:message "Internal Server Error"}))
-
-(defn- format-undefined-error [^Exception e]
-  (-> (r/response default-error)
-      (ring/content-type-json)
-      (r/status 500)))
-
-(defn- format-defined-error [^ExceptionInfo e]
-  (let [data (-> (ex-data e)
-                 (assoc :message (.getMessage e)))]
-    (if-let [http-code (:http-code data)]
-      (let [data (dissoc data :http-code)]
-        (-> (r/response (json/write-str data))
-            (ring/content-type-json)
-            (r/status http-code)))
-      (format-undefined-error e))))
-
-(defn exceptions-to-json [handler]
-  (fn [request]
-    (try
-      (handler request)
-      (catch ExceptionInfo e
-        (format-defined-error e))
-      (catch Exception e
-        (log/error e "Undefined exception during request execution: %s" (str e))
-        (format-undefined-error e)))))
 
 (defn health-endpoint
   "Adds a /.well-known/health endpoint for load balancer tests."
@@ -105,7 +63,7 @@
 
 (defn start-component
   "Starts the http component."
-  [component definition mapper-fn]
+  [component definition resolver-fn]
   (if (:handler component)
     (do
       (log/debug "Skipping start of HTTP ; already running.")
@@ -114,23 +72,19 @@
     (do
       (log/info "starting HTTP daemon for API" definition)
       (let [configuration (:configuration component)
-            get-oauth2-config (fn [] {:tokeninfo-url (require-config configuration :tokeninfo-url)})
-            handler (-> (s1st/swagger-context ::s1st/yaml-cp definition)
-                        (s1st/swagger-ring add-ip-log-context)
-                        (s1st/swagger-ring add-hsts-header)
-                        (s1st/swagger-ring exceptions-to-json)
-                        (s1st/swagger-ring health-endpoint)
-                        (s1st/swagger-ring wrap-params)
-                        (s1st/swagger-ring add-cors-allow-headers)
-                        (s1st/swagger-mapper :cors-origin (:cors-origin configuration))
-                        (s1st/swagger-discovery)
-                        (s1st/swagger-parser)
-                        (s1st/swagger-validator)
-                        (s1st/swagger-security {"oauth2" (s1stsec/oauth-2.0
-                                                           get-oauth2-config
-                                                           s1stsec/tokeninfo-scope-attribute)})
-                        (s1st/swagger-ring add-user-log-context)
-                        (s1st/swagger-executor :mappers [mapper-fn]))]
+            handler (-> (s1st/context :yaml-cp definition)
+                        (s1st/ring add-ip-log-context)
+                        (s1st/ring s1stapi/add-hsts-header)
+                        (s1st/ring s1stapi/add-cors-headers)
+                        (s1st/ring s1stapi/surpress-favicon-requests)
+                        (s1st/ring health-endpoint)
+                        (s1st/discoverer)
+                        (s1st/ring wrap-params)
+                        (s1st/mapper)
+                        (s1st/parser)
+                        (s1st/protector {"oauth2" (s1stsec/allow-all)}) ; TODO do correct implementation
+                        (s1st/ring add-user-log-context)
+                        (s1st/executor :resolver resolver-fn))]
 
         (if (:no-listen? configuration)
           (merge component {:httpd   nil
@@ -172,11 +126,11 @@
      Lifecycle
 
      (start [this#]
-       (let [mapper-fn# (fn [operationId#]
-                          (if-let [cljfn# (s1st/map-function-name operationId#)]
-                            (fn [request#]
-                              (cljfn# (flatten-parameters request#) request# ~@dependencies))))]
-         (start-component this# ~definition mapper-fn#)))
+       (let [resolver-fn# (fn [request-definition#]
+                            (if-let [cljfn# (s1stexec/operationId-to-function request-definition#)]
+                              (fn [request#]
+                                (cljfn# (flatten-parameters request#) request# ~@dependencies))))]
+         (start-component this# ~definition resolver-fn#)))
 
      (stop [this#]
        (stop-component this#))))
