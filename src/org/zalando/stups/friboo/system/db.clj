@@ -53,6 +53,7 @@
                            (.setStatisticsEnabled true)
                            (.setIdleConnectionTestPeriodInMinutes 25)
                            (.setIdleMaxAgeInMinutes (* 3 60))
+                           (.setInitSQL (or (:init-sql configuration) ""))
                            (.setConnectionTestStatement "SELECT 1"))]
           (assoc component :datasource datasource))))))
 
