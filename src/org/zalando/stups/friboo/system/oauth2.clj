@@ -6,7 +6,8 @@
             [org.zalando.stups.friboo.system.credentials :as c]
             [org.zalando.stups.friboo.log :as log]
             [clojure.string :as string]
-            [clj-time.core :as t]))
+            [clj-time.core :as t]
+            [clj-time.coerce :as tc]))
 
 (defn refresh-token
   "Tries to get a new token with the given credentials for the given scopes and returns new token info."
@@ -33,35 +34,43 @@
               now (t/now)
               body (:body response)
               token-info (merge body
-                                {:expires_in (t/plus now (t/seconds (:expires_in body)))
+                                {:expires_on (t/plus now (t/seconds (:expires_in body)))
                                  :created_on now})]
           (log/debug "Got new token info %s." token-info)
           token-info)))))
 
-(defn token-needs-refresh?
-  "Checks if a token needs refresh."
-  [token-info]
-  (if (empty? token-info)
-    true
-    ; TODO expiration time is only 40% left
-    (t/after? (t/now) (:expires_in token-info))))
+(def refresh-when-percent-left 40)
+(def warn-when-percent-left 20)
+
+(defn token-time-percent-left
+  "Calculates the left time of its validity in percent."
+  [{:keys [expires_on expires_in]}]
+  (if (and expires_on expires_in)
+    (let [now-seconds (tc/to-epoch (t/now))
+          expires_on-seconds (tc/to-epoch expires_on)
+          left-seconds (- expires_on-seconds now-seconds)]
+      (* (/ left-seconds expires_in) 100))
+    ; some information are missing, 0% left is a sane default
+    0))
 
 (defn refresh-tokens
   "Checks for every configured token if it requires refresh and triggers if necessary."
   [access-token-url tokens credentials token-storage]
   (try
     (doseq [[token-id scopes] tokens]
-      (let [token-info (get @token-storage token-id)]
-        (if (token-needs-refresh? token-info)
+      (let [token-info (get @token-storage token-id)
+            time-percent-left (token-time-percent-left token-info)]
+        (if (< time-percent-left refresh-when-percent-left)
           (do
-            (log/debug "Token %s needs refresh; refreshing..." token-id)
+            (log/debug "Token %s needs refresh because only %s percent left of its lifetime; refreshing..." token-id time-percent-left)
             (try
               (let [token-info (refresh-token access-token-url credentials scopes)]
                 (swap! token-storage assoc token-id token-info)
                 (log/info "Access token %s refreshed." token-id))
               (catch Exception e
-                ; TODO only debug message if time left > 20%, warn if time left <= 20%
-                (log/warn "Could not refresh access token %s because %s." token-id (str e)))))
+                (if (or (empty? token-info) (< (token-time-percent-left token-info) warn-when-percent-left))
+                  (log/warn "Could not refresh access token %s because %s." token-id (str e))
+                  (log/debug "Could not refresh access token %s because %s." token-id (str e))))))
           ; TODO no need for refresh but check every 20% of time with the tokeninfo endpoint if really still valid
           )))
     (catch Throwable e
@@ -102,6 +111,6 @@
   (let [token-storage (:token-storage refresher)
         token-info (get @token-storage token-id)]
     ; check if token is available and still valid
-    (if (and token-info (t/before? (t/now) (:expires_in token-info)))
+    (if (and token-info (t/before? (t/now) (:expires_on token-info)))
       (:access_token token-info)
       (throw (IllegalStateException. (str "no valid access token " token-id " available"))))))
