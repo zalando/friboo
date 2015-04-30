@@ -14,7 +14,9 @@
 
 (ns org.zalando.stups.friboo.log
   (:require [clojure.tools.logging :as clojure-logging]
-            [clojure.data.json :as json]))
+            [clojure.data.json :as json]
+            ; loads joda datetime json serialization
+            [io.sarnowski.swagger1st.parser]))
 
 (defn format-value
   "Formats dynamic information for logs."

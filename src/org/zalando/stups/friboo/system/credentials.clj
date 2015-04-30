@@ -7,21 +7,22 @@
             [clojure.data.json :as json])
   (:import (java.io File PrintWriter)))
 
-; provide json serialization
-(defn- serialize-file
-  "Serializes a sql timestamp to json."
-  [^File file #^PrintWriter out]
-  (.print out (json/write-str (str file))))
+; provide json serialization for logging of java.io.File
 
-; add json capability to java.sql.Timestamp
+(defn- serialize-file
+  "Serializes a java.io.File to JSON."
+  [^File file #^PrintWriter out]
+  (.print out (json/write-str (str file) :escape-slash false)))
+
 (extend File json/JSONWriter
   {:-write serialize-file})
+
 
 (defn- check-file
   "Checks a file if it has new credentials and updates the credentials atom."
   [type file credentials]
   (try
-    (let [data (-> file slurp json/read-str)]
+    (let [data (-> file slurp (json/read-str :key-fn keyword))]
       (when (and (not-empty data) (not= data (get @credentials type)))
         (swap! credentials assoc type data)
         (log/info "New credentials for %s in %s found." type file)))
@@ -56,3 +57,10 @@
     ; no problem in production and only marginal during development
     (log/warn "Cannot stop watching credentials file; leaking memory and background thread.")
     (assoc this :credentials nil)))
+
+
+(defn credentials
+  "Returns credentials struct from an updater."
+  [^CredentialUpdater updater type]
+  (let [credentials (get updater :credentials)]
+    (get @credentials type)))

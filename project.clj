@@ -26,7 +26,8 @@
                  [amazonica "0.3.19"]
                  [org.clojure/data.codec "0.1.0"]
                  [overtone/at-at "1.2.0"]
-                 [clojure-watch "0.1.10"]]
+                 [clojure-watch "0.1.10"]
+                 [clj-http "1.1.1"]]
 
   :plugins [[lein-cloverage "1.0.3"]]
 
