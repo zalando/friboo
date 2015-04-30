@@ -15,6 +15,7 @@
                  [com.stuartsierra/component "0.2.3"]
                  [ring "1.3.2"]
                  [environ "1.0.0"]
+                 [io.clj/logging "0.8.1"]
                  [org.apache.logging.log4j/log4j-api "2.2"]
                  [org.apache.logging.log4j/log4j-core "2.2"]
                  [org.apache.logging.log4j/log4j-slf4j-impl "2.2"]

@@ -28,27 +28,12 @@
   [& values]
   (map format-value values))
 
-; TODO store in log4j MDC? makes us more dependent and less flexible with actual log format
-(def ^:dynamic context {})
-(def ^:dynamic context-message nil)
-
-(defmacro log-with
-  "Adds the given keys to the logging context."
-  [ctx & body]
-  ; TODO use linked map and sorting to have nicely sorted output?
-  `(binding [context (merge context ~ctx)
-             context-message (format-value context)]
-     ~@body))
-
 (defmacro logf
   "Logs a message, formatted with clear distinction for dynamic values."
   [level exception message & more]
   `(when (clojure-logging/enabled? ~level)
      (let [more# (format-values ~@more)
-           msg# (apply format ~message more#)
-           msg# (if (nil? ~context-message)
-                  msg#
-                  (str ~context-message " " msg#))]
+           msg# (apply format ~message more#)]
        (clojure-logging/log ~level ~exception msg#))))
 
 (defmacro trace [message & args]

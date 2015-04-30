@@ -23,7 +23,8 @@
             [org.zalando.stups.friboo.log :as log]
             [org.zalando.stups.friboo.config :refer [require-config]]
             [ring.util.response :as r]
-            [org.zalando.stups.friboo.ring :as ring]))
+            [org.zalando.stups.friboo.ring :as ring]
+            [io.clj.logging :refer [with-logging-context]]))
 
 (defn flatten-parameters
   "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
@@ -31,25 +32,29 @@
   [request]
   (apply merge (map (fn [[k v]] v) (:parameters request))))
 
-; TODO doesn't work currently
-(defn- add-ip-log-context
-  "Adds the :client context to log statements."
-  [handler]
-  (fn [request]
-    (log/log-with
-      ; TODO make loadbalancer/proxy aware (forward-for header)
-      {:ip (:remote-addr request)}
-      (handler request))))
+(defn compute-request-info
+  "Creates a nice, readable request info text for logline prefixing."
+  [request]
+  (str
+    (.toUpperCase (-> request :request-method name))
+    " "
+    (:uri request)
+    " <- "
+    (if-let [x-forwarded-for (-> request :headers (get "x-forwarded-for"))]
+      x-forwarded-for
+      (:remote-addr request))
+    (if-let [tokeninfo (:tokeninfo request)]
+      (str " / " (get tokeninfo "uid") " @ " (get tokeninfo "realm"))
+      "")))
 
-; TODO doesn't work currently
-(defn- add-user-log-context
-  "Adds the :user context to log statements."
-  [handler]
+(defn enrich-log-lines
+  "Adds HTTP request context information to the logging facility's MDC in the 'request' key."
+  [next-handler]
   (fn [request]
-    (log/log-with
-      ; TODO add user information, noop currently
-      {}
-      (handler request))))
+    (let [request-info (compute-request-info request)]
+      (with-logging-context
+        {:request (str " [" request-info "]")}
+        (next-handler request)))))
 
 (defn health-endpoint
   "Adds a /.well-known/health endpoint for load balancer tests."
@@ -75,7 +80,7 @@
 
 
             handler (-> (s1st/context :yaml-cp definition)
-                        (s1st/ring add-ip-log-context)
+                        (s1st/ring enrich-log-lines)
                         (s1st/ring s1stapi/add-hsts-header)
                         (s1st/ring s1stapi/add-cors-headers)
                         (s1st/ring s1stapi/surpress-favicon-requests)
@@ -92,7 +97,7 @@
                                            (do
                                              (log/warn "No token info URL configured; NOT ENFORCING SECURITY!")
                                              (s1stsec/allow-all)))})
-                        (s1st/ring add-user-log-context)
+                        (s1st/ring enrich-log-lines) ; now we also know the user, replace request info
                         (s1st/executor :resolver resolver-fn))]
 
         (if (:no-listen? configuration)
