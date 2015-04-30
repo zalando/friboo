@@ -70,8 +70,10 @@
       component)
 
     (do
-      (log/info "starting HTTP daemon for API" definition)
+      (log/info "Starting HTTP daemon for API" definition)
       (let [configuration (:configuration component)
+
+
             handler (-> (s1st/context :yaml-cp definition)
                         (s1st/ring add-ip-log-context)
                         (s1st/ring s1stapi/add-hsts-header)
@@ -82,7 +84,14 @@
                         (s1st/ring wrap-params)
                         (s1st/mapper)
                         (s1st/parser)
-                        (s1st/protector {"oauth2" (s1stsec/allow-all)}) ; TODO do correct implementation
+                        (s1st/protector {"oauth2"
+                                         (if (:tokeninfo-url configuration)
+                                           (do
+                                             (log/info "Checking access tokens against %s." (:tokeninfo-url configuration))
+                                             (s1stsec/oauth-2.0 configuration s1stsec/check-corresponding-attributes))
+                                           (do
+                                             (log/warn "No token info URL configured; NOT ENFORCING SECURITY!")
+                                             (s1stsec/allow-all)))})
                         (s1st/ring add-user-log-context)
                         (s1st/executor :resolver resolver-fn))]
 

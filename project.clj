@@ -11,7 +11,7 @@
   :min-lein-version "2.0.0"
 
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [io.sarnowski/swagger1st "0.9.0"]
+                 [io.sarnowski/swagger1st "0.10.0-SNAPSHOT"]
                  [com.stuartsierra/component "0.2.3"]
                  [ring "1.3.2"]
                  [environ "1.0.0"]
@@ -26,8 +26,7 @@
                  [amazonica "0.3.19"]
                  [org.clojure/data.codec "0.1.0"]
                  [overtone/at-at "1.2.0"]
-                 [clojure-watch "0.1.10"]
-                 [clj-http "1.1.1"]]
+                 [clojure-watch "0.1.10"]]
 
   :plugins [[lein-cloverage "1.0.3"]]
 
