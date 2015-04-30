@@ -11,7 +11,7 @@
   :min-lein-version "2.0.0"
 
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [io.sarnowski/swagger1st "0.10.0-SNAPSHOT"]
+                 [io.sarnowski/swagger1st "0.10.0"]
                  [com.stuartsierra/component "0.2.3"]
                  [ring "1.3.2"]
                  [environ "1.0.0"]
