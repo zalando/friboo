@@ -66,6 +66,12 @@
           (r/status 200))
       (handler request))))
 
+(defn add-config-to-request
+  "Adds the HTTP configuration to the request object, so that handlers can access it."
+  [next-handler configuration]
+  (fn [request]
+    (next-handler (assoc request :configuration configuration))))
+
 (defn start-component
   "Starts the http component."
   [component definition resolver-fn]
@@ -98,6 +104,7 @@
                                              (log/warn "No token info URL configured; NOT ENFORCING SECURITY!")
                                              (s1stsec/allow-all)))})
                         (s1st/ring enrich-log-lines) ; now we also know the user, replace request info
+                        (s1st/ring add-config-to-request configuration)
                         (s1st/executor :resolver resolver-fn))]
 
         (if (:no-listen? configuration)
