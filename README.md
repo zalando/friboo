@@ -2,6 +2,10 @@
 
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.zalando.stups/friboo/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.zalando.stups/friboo)
 
+[![Build Status](https://travis-ci.org/zalando-stups/friboo.svg?branch=master)](https://travis-ci.org/zalando-stups/friboo)
+
+[![Coverage Status](https://coveralls.io/repos/zalando-stups/friboo/badge.svg)](https://coveralls.io/r/zalando-stups/friboo)
+
 A utility library to write microservices in Clojure. The library provides some components that can be used with the
 [component lifecycle framework](https://github.com/stuartsierra/component).
 
@@ -96,7 +100,7 @@ TODO link to jdbc documentation, pool specific configuration like min- and max-p
 There are multiple examples of real-world usages among the STUPS components:
 
 * [Kio application registry](https://github.com/zalando-stups/kio) (REST service with DB)
-* [Pier One Docker registry](https://github.com/zalando-stups/pierone) (REST service with DB and S3 backend) 
+* [Pier One Docker registry](https://github.com/zalando-stups/pierone) (REST service with DB and S3 backend)
 * [Even SSH access granting service](https://github.com/zalando-stups/even) (REST service with DB)
 * [Hello world example](https://github.com/hjacobs/friboo-hello-world) (very simple REST service without DB)
 
