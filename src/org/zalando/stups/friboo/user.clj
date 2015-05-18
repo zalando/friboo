@@ -58,14 +58,22 @@
 (defn require-internal-user
   "Makes sure the user is either a service user, or an employee.
    In the latter case the user must belong to at least one team."
-  [request]
-  (let [realm (require-realms #{"employees" "services"} request)]
-    (when (= realm "employees")
-      (require-teams request))))
-
+  [{:keys [tokeninfo] :as request}]
+  (when tokeninfo
+    ((let [realm (require-realms #{"employees" "services"} request)]
+       (when (= realm "employees")
+         (require-teams request))))))
 
 (defn require-internal-team
   "Makes sure the user is an employee and belongs to the given team."
-  [team request]
-  (require-realms #{"employees"} request)
-  (require-team team request))
+  [team {:keys [tokeninfo] :as request}]
+  (when tokeninfo
+    (require-realms #{"employees"} request)
+    (require-team team request)))
+
+(defn require-any-internal-team
+  "Makes sure the user is an employee and belongs to any team."
+  [{:keys [tokeninfo] :as request}]
+  (when tokeninfo
+    (require-realms #{"employees"} request)
+    (require-teams request)))
