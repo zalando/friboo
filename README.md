@@ -1,9 +1,7 @@
 # friboo
 
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.zalando.stups/friboo/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.zalando.stups/friboo)
-
+![Maven Central](https://img.shields.io/maven-central/v/org.zalando.stups/friboo.svg)
 [![Build Status](https://travis-ci.org/zalando-stups/friboo.svg?branch=master)](https://travis-ci.org/zalando-stups/friboo)
-
 [![Coverage Status](https://coveralls.io/repos/zalando-stups/friboo/badge.svg)](https://coveralls.io/r/zalando-stups/friboo)
 
 A utility library to write microservices in Clojure. The library provides some components that can be used with the
