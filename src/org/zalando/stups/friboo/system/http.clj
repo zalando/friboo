@@ -85,14 +85,15 @@
 (defn map-authorization-header
   "Map 'Token' and 'Basic' Authorization values to standard Bearer OAuth2 auth"
   [authorization]
-  (condp #(.startsWith %2 %1) authorization
-    "Token " (.replaceFirst authorization "Token " "Bearer ")
-    "Basic " (let [basic-auth (parse-basic-auth authorization)]
-               (if (= (:username basic-auth) "oauth2")
-                 (str "Bearer " (:password basic-auth))
-                 ; do not touch Basic auth headers if username is not "oauth2"
-                 authorization))
-  authorization))
+  (when authorization
+    (condp #(.startsWith %2 %1) authorization
+      "Token " (.replaceFirst authorization "Token " "Bearer ")
+      "Basic " (let [basic-auth (parse-basic-auth authorization)]
+                 (if (= (:username basic-auth) "oauth2")
+                   (str "Bearer " (:password basic-auth))
+                   ; do not touch Basic auth headers if username is not "oauth2"
+                   authorization))
+      authorization)))
 
 (defn map-alternate-auth-header
   "Map alternate Authorization headers to standard OAuth2 'Bearer' auth"
