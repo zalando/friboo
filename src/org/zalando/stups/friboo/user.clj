@@ -40,3 +40,32 @@
                         {:user          user-id
                          :required-team team
                          :user-teams    in-team?})))))
+
+(defn require-realms
+  "Throws an exception if user is not in the given realms, else returns the user's realm"
+  [realms {:keys [tokeninfo]}]
+  (let [realm (get tokeninfo "realm")
+        user-id (get tokeninfo "uid")]
+    (if (contains? realms realm)
+      realm
+      (do
+        (log/warn "ACCESS DENIED (unauthorized) because user is not in realms %s." realms)
+        (api/throw-error 403 (str "user not in realms '" realms "'")
+                         {:user            user-id
+                          :required-realms realms
+                          :user-realm      realm})))))
+
+(defn require-internal-user
+  "Makes sure the user is either a service user, or an employee.
+   In the latter case the user must belong to at least one team."
+  [request]
+  (let [realm (require-realms #{"employees" "services"} request)]
+    (when (= realm "employees")
+      (require-teams request))))
+
+
+(defn require-internal-team
+  "Makes sure the user is an employee and belongs to the given team."
+  [team request]
+  (require-realms #{"employees"} request)
+  (require-team team request))
