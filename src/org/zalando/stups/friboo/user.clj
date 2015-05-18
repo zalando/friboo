@@ -60,9 +60,9 @@
    In the latter case the user must belong to at least one team."
   [{:keys [tokeninfo] :as request}]
   (when tokeninfo
-    ((let [realm (require-realms #{"employees" "services"} request)]
-       (when (= realm "employees")
-         (require-teams request))))))
+    (let [realm (require-realms #{"employees" "services"} request)]
+      (when (= realm "employees")
+        (require-teams request)))))
 
 (defn require-internal-team
   "Makes sure the user is an employee and belongs to the given team."
