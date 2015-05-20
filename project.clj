@@ -27,7 +27,7 @@
                  [amazonica "0.3.22"]
                  [org.clojure/data.codec "0.1.0"]
                  [overtone/at-at "1.2.0"]
-                 [clojure-watch "0.1.10"]]
+                 [org.zalando.stups/tokens "0.1.0"]]
 
   :plugins [[lein-cloverage "1.0.3"]]
 
