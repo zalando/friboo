@@ -24,6 +24,9 @@
             [org.zalando.stups.friboo.log :as log]
             [org.zalando.stups.friboo.config :refer [require-config]]
             [ring.util.response :as r]
+            [ring.middleware.resource :refer [wrap-resource]]
+            [ring.middleware.content-type :refer [wrap-content-type]]
+            [ring.middleware.not-modified :refer [wrap-not-modified]]
             [org.zalando.stups.friboo.ring :as ring]
             [clojure.data.codec.base64 :as b64]
             [io.clj.logging :refer [with-logging-context]])
@@ -116,9 +119,9 @@
   (fn [request]
     (next-handler (assoc request :configuration configuration))))
 
-(defn run-jetty
+(defn run-hystrix-jetty
   "Starts Jetty with Hystrix event stream servlet"
-  [app options]
+  [options]
   (let [^Server server (#'jetty/create-server (dissoc options :configurator))
         ^QueuedThreadPool pool (QueuedThreadPool. ^Integer (options :max-threads 50))]
     (when (:daemon? options false) (.setDaemon pool true))
@@ -126,10 +129,13 @@
     (when-let [configurator (:configurator options)]
       (configurator server))
     (let [hystrix-holder (ServletHolder. HystrixMetricsStreamServlet)
-          app-holder (ServletHolder. (servlet/servlet app))
-          context (ServletContextHandler. server "/" ServletContextHandler/NO_SESSIONS)]
+          context (ServletContextHandler. server "/" ServletContextHandler/NO_SESSIONS)
+          dashboard-handler (-> (constantly (r/redirect "/monitor/monitor.html"))
+                                (wrap-resource "hystrix-dashboard")
+                                (wrap-content-type)
+                                (wrap-not-modified))]
       (.addServlet context hystrix-holder "/hystrix.stream")
-      (.addServlet context app-holder "/"))
+      (.addServlet context (ServletHolder. (servlet/servlet dashboard-handler)) "/"))
     (.start server)
     (when (:join? options true) (.join server))
     server))
@@ -171,11 +177,14 @@
                         (s1st/executor :resolver resolver-fn))]
 
         (if (:no-listen? configuration)
-          (merge component {:httpd   nil
-                            :handler handler})
-          (merge component {:httpd   (run-jetty handler (merge configuration
-                                                               {:join? false}))
-                            :handler handler}))))))
+          (merge component {:httpd         nil
+                            :hystrix-httpd nil
+                            :handler       handler})
+          (merge component {:httpd         (jetty/run-jetty handler (merge configuration
+                                                                           {:join? false}))
+                            :hystrix-httpd (run-hystrix-jetty (merge configuration {:join? false
+                                                                                    :port  7979}))
+                            :handler       handler}))))))
 
 (defn stop-component
   "Stops the http component."
@@ -187,9 +196,12 @@
 
     (do
       (log/info "Stopping HTTP daemon.")
-      (.stop (:httpd component))
-      (merge component {:httpd   nil
-                        :handler nil}))))
+      (when-not (:no-listen? (:configuration component))
+        (.stop (:httpd component))
+        (.stop (:hystrix-httpd component)))
+      (merge component {:httpd         nil
+                        :hystrix-httpd nil
+                        :handler       nil}))))
 
 (defmacro def-http-component
   "Creates an http component with your name and all your given dependencies. Those dependencies will also be available
