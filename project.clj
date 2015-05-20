@@ -24,7 +24,7 @@
                  [org.apache.logging.log4j/log4j-jul "2.3"]
                  [com.jolbox/bonecp "0.8.0.RELEASE"]
                  [org.flywaydb/flyway-core "3.2.1"]
-                 [amazonica "0.3.22"]
+                 [amazonica "0.3.22" :exclusions [org.apache.httpcomponents/httpclient joda-time]]
                  [org.clojure/data.codec "0.1.0"]
                  [overtone/at-at "1.2.0"]
                  [org.zalando.stups/tokens "0.1.0"]]
