@@ -27,7 +27,9 @@
                  [amazonica "0.3.22"]
                  [org.clojure/data.codec "0.1.0"]
                  [overtone/at-at "1.2.0"]
-                 [org.zalando.stups/tokens "0.1.0"]]
+                 [org.zalando.stups/tokens "0.1.0"]
+                 [com.netflix.hystrix/hystrix-clj "1.4.7"]
+                 [com.netflix.hystrix/hystrix-core "1.4.7"]]
 
   :plugins [[lein-cloverage "1.0.3"]]
 

@@ -3,7 +3,16 @@
             [org.zalando.stups.friboo.ring :as r]
             [io.sarnowski.swagger1st.util.api :as api]
             [org.zalando.stups.friboo.config :refer [require-config]]
-            [org.zalando.stups.friboo.log :as log]))
+            [org.zalando.stups.friboo.log :as log]
+            [com.netflix.hystrix.core :as hystrix])
+  (:import (com.netflix.hystrix.exception HystrixRuntimeException)))
+
+(hystrix/defcommand
+  get-teams
+  [team-service-url access-token user-id]
+  (:body (http/get (r/conpath team-service-url "/user/" user-id)
+                   {:oauth-token access-token
+                    :as          :json})))
 
 (defn require-teams
   "Returns a set of teams, a user is part of or throws an exception if user is in no team."
@@ -15,16 +24,18 @@
    (when-not user-id
      (log/warn "ACCESS DENIED (unauthenticated) because token does not contain user information.")
      (api/throw-error 403 "no user information available"))
-   (let [response (http/get (r/conpath team-service-url "/user/" user-id)
-                            {:oauth-token token
-                             :as          :json})
-         teams (:body response)]
-     (if (empty? teams)
-       (do
-         (log/warn "ACCESS DENIED (unauthorized) because user is not any team.")
-         (api/throw-error 403 "user has no teams"
-                          {:user user-id}))
-       (into #{} (map :id teams))))))
+   (try
+     (let [teams (get-teams team-service-url token user-id)]
+       (if (empty? teams)
+         (do
+           (log/warn "ACCESS DENIED (unauthorized) because user is not any team.")
+           (api/throw-error 403 "user has no teams"
+                            {:user user-id}))
+         (into #{} (map :id teams))))
+     (catch HystrixRuntimeException e
+       (let [cause (-> e .getCause .toString)]
+         (log/warn "Team service at %s unavailable. Cause: %s" team-service-url cause)
+         (api/throw-error 503 "team service unavailable" {:team_service_url team-service-url :cause cause}))))))
 
 (defn require-team
   "Throws an exception if user is not in the given team, else returns nil."
