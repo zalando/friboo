@@ -14,6 +14,7 @@
                  [io.sarnowski/swagger1st "0.13.0"]
                  [com.stuartsierra/component "0.2.3"]
                  [ring "1.3.2"]
+                 [org.eclipse.jetty/jetty-servlet "7.6.13.v20130916"]
                  [environ "1.0.0"]
                  [io.clj/logging "0.8.1"]
                  [org.apache.logging.log4j/log4j-api "2.3"]
@@ -29,7 +30,8 @@
                  [overtone/at-at "1.2.0"]
                  [org.zalando.stups/tokens "0.1.0"]
                  [com.netflix.hystrix/hystrix-clj "1.4.7"]
-                 [com.netflix.hystrix/hystrix-core "1.4.7"]]
+                 [com.netflix.hystrix/hystrix-core "1.4.7"]
+                 [com.netflix.hystrix/hystrix-metrics-event-stream "1.4.7"]]
 
   :plugins [[lein-cloverage "1.0.3"]]
 

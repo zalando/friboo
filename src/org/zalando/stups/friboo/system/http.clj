@@ -19,13 +19,18 @@
             [io.sarnowski.swagger1st.util.security :as s1stsec]
             [ring.middleware.params :refer [wrap-params]]
             [ring.adapter.jetty :as jetty]
+            [ring.util.servlet :as servlet]
             [com.stuartsierra.component :refer [Lifecycle]]
             [org.zalando.stups.friboo.log :as log]
             [org.zalando.stups.friboo.config :refer [require-config]]
             [ring.util.response :as r]
             [org.zalando.stups.friboo.ring :as ring]
             [clojure.data.codec.base64 :as b64]
-            [io.clj.logging :refer [with-logging-context]]))
+            [io.clj.logging :refer [with-logging-context]])
+  (:import (com.netflix.hystrix.contrib.metrics.eventstream HystrixMetricsStreamServlet)
+           (org.eclipse.jetty.util.thread QueuedThreadPool)
+           (org.eclipse.jetty.server Server)
+           (org.eclipse.jetty.servlet ServletHolder ServletContextHandler)))
 
 (defn flatten-parameters
   "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
@@ -111,6 +116,24 @@
   (fn [request]
     (next-handler (assoc request :configuration configuration))))
 
+(defn run-jetty
+  "Starts Jetty with Hystrix event stream servlet"
+  [app options]
+  (let [^Server server (#'jetty/create-server (dissoc options :configurator))
+        ^QueuedThreadPool pool (QueuedThreadPool. ^Integer (options :max-threads 50))]
+    (when (:daemon? options false) (.setDaemon pool true))
+    (doto server (.setThreadPool pool))
+    (when-let [configurator (:configurator options)]
+      (configurator server))
+    (let [hystrix-holder (ServletHolder. HystrixMetricsStreamServlet)
+          app-holder (ServletHolder. (servlet/servlet app))
+          context (ServletContextHandler. server "/" ServletContextHandler/NO_SESSIONS)]
+      (.addServlet context hystrix-holder "/hystrix.stream")
+      (.addServlet context app-holder "/"))
+    (.start server)
+    (when (:join? options true) (.join server))
+    server))
+
 (defn start-component
   "Starts the http component."
   [component definition resolver-fn]
@@ -143,15 +166,15 @@
                                            (do
                                              (log/warn "No token info URL configured; NOT ENFORCING SECURITY!")
                                              (s1stsec/allow-all)))})
-                        (s1st/ring enrich-log-lines) ; now we also know the user, replace request info
+                        (s1st/ring enrich-log-lines)        ; now we also know the user, replace request info
                         (s1st/ring add-config-to-request configuration)
                         (s1st/executor :resolver resolver-fn))]
 
         (if (:no-listen? configuration)
           (merge component {:httpd   nil
                             :handler handler})
-          (merge component {:httpd   (jetty/run-jetty handler (merge configuration
-                                                                     {:join? false}))
+          (merge component {:httpd   (run-jetty handler (merge configuration
+                                                               {:join? false}))
                             :handler handler}))))))
 
 (defn stop-component
