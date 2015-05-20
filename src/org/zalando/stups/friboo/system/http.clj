@@ -29,11 +29,13 @@
             [ring.middleware.not-modified :refer [wrap-not-modified]]
             [org.zalando.stups.friboo.ring :as ring]
             [clojure.data.codec.base64 :as b64]
-            [io.clj.logging :refer [with-logging-context]])
+            [io.clj.logging :refer [with-logging-context]]
+            [io.sarnowski.swagger1st.util.api :as api])
   (:import (com.netflix.hystrix.contrib.metrics.eventstream HystrixMetricsStreamServlet)
            (org.eclipse.jetty.util.thread QueuedThreadPool)
            (org.eclipse.jetty.server Server)
-           (org.eclipse.jetty.servlet ServletHolder ServletContextHandler)))
+           (org.eclipse.jetty.servlet ServletHolder ServletContextHandler)
+           (com.netflix.hystrix.exception HystrixRuntimeException)))
 
 (defn flatten-parameters
   "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
@@ -119,6 +121,17 @@
   (fn [request]
     (next-handler (assoc request :configuration configuration))))
 
+(defn convert-hystrix-exceptions
+  [next-handler]
+  (fn [request]
+    (try
+      (next-handler request)
+      (catch HystrixRuntimeException e
+        (let [reason (-> e .getCause .toString)
+              failure-type (str (.getFailureType e))]
+          (log/warn (str "Hystrix: " (.getMessage e) " %s occurred, because %s") failure-type reason)
+          (api/throw-error 503 "A dependency is unavailable."))))))
+
 (defn run-hystrix-jetty
   "Starts Jetty with Hystrix event stream servlet"
   [options]
@@ -174,6 +187,7 @@
                                              (s1stsec/allow-all)))})
                         (s1st/ring enrich-log-lines)        ; now we also know the user, replace request info
                         (s1st/ring add-config-to-request configuration)
+                        (s1st/ring convert-hystrix-exceptions)
                         (s1st/executor :resolver resolver-fn))]
 
         (if (:no-listen? configuration)
