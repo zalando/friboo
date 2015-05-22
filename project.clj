@@ -28,10 +28,10 @@
                  [amazonica "0.3.22" :exclusions [org.apache.httpcomponents/httpclient joda-time]]
                  [org.clojure/data.codec "0.1.0"]
                  [overtone/at-at "1.2.0"]
-                 [org.zalando.stups/tokens "0.1.0"]
-                 [com.netflix.hystrix/hystrix-clj "1.4.7"]
-                 [com.netflix.hystrix/hystrix-core "1.4.7"]
-                 [com.netflix.hystrix/hystrix-metrics-event-stream "1.4.7"]]
+                 [org.zalando.stups/tokens "0.2.0"]
+                 [com.netflix.hystrix/hystrix-clj "1.4.8"]
+                 [com.netflix.hystrix/hystrix-core "1.4.8"]
+                 [com.netflix.hystrix/hystrix-metrics-event-stream "1.4.8"]]
 
   :plugins [[lein-cloverage "1.0.3"]]
 
