@@ -30,7 +30,9 @@
             [org.zalando.stups.friboo.ring :as ring]
             [clojure.data.codec.base64 :as b64]
             [io.clj.logging :refer [with-logging-context]]
-            [io.sarnowski.swagger1st.util.api :as api])
+            [io.sarnowski.swagger1st.util.api :as api]
+            [clj-http.client :as client]
+            [com.netflix.hystrix.core :refer [defcommand]])
   (:import (com.netflix.hystrix.contrib.metrics.eventstream HystrixMetricsStreamServlet)
            (org.eclipse.jetty.util.thread QueuedThreadPool)
            (org.eclipse.jetty.server Server)
@@ -121,6 +123,23 @@
   (fn [request]
     (next-handler (assoc request :configuration configuration))))
 
+(defcommand fetch-tokeninfo
+  [tokeninfo-url access-token]
+  (let [response (client/get tokeninfo-url
+                             {:query-params     {:access_token access-token}
+                              :throw-exceptions false
+                              :as               :json-string-keys})]
+    (if (client/server-error? response)
+      (throw (IllegalStateException. (str "tokeninfo endpoint returned status code: " (:status response))))
+      response)))
+
+(defn resolve-access-token
+  "Checks with a tokeninfo endpoint for the token's validity and returns the session information if valid."
+  [tokeninfo-url access-token]
+  (let [response (fetch-tokeninfo tokeninfo-url access-token)
+        body (:body response)]
+    (when (client/success? response) body)))
+
 (defn convert-hystrix-exceptions
   [next-handler]
   (fn [request]
@@ -177,17 +196,18 @@
                         (s1st/ring wrap-params)
                         (s1st/mapper)
                         (s1st/parser)
+                        (s1st/ring convert-hystrix-exceptions)
                         (s1st/protector {"oauth2"
                                          (if (:tokeninfo-url configuration)
                                            (do
                                              (log/info "Checking access tokens against %s." (:tokeninfo-url configuration))
-                                             (s1stsec/oauth-2.0 configuration s1stsec/check-corresponding-attributes))
+                                             (s1stsec/oauth-2.0 configuration s1stsec/check-corresponding-attributes
+                                                                :resolver-fn resolve-access-token))
                                            (do
                                              (log/warn "No token info URL configured; NOT ENFORCING SECURITY!")
                                              (s1stsec/allow-all)))})
                         (s1st/ring enrich-log-lines)        ; now we also know the user, replace request info
                         (s1st/ring add-config-to-request configuration)
-                        (s1st/ring convert-hystrix-exceptions)
                         (s1st/executor :resolver resolver-fn))]
 
         (if (:no-listen? configuration)
