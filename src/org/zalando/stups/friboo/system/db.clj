@@ -16,12 +16,15 @@
   (:require [com.stuartsierra.component :as component]
             [org.zalando.stups.friboo.log :as log]
             [org.zalando.stups.friboo.config :refer [require-config]]
-            [clojure.data.json :as json])
+            [clojure.data.json :as json]
+            [com.netflix.hystrix.core :refer [defcommand]])
   (:import (com.jolbox.bonecp BoneCPDataSource)
            (org.flywaydb.core Flyway)
            (java.sql Timestamp)
            (java.io PrintWriter)
-           (java.text SimpleDateFormat)))
+           (java.text SimpleDateFormat)
+           (org.postgresql.util PSQLException)
+           (com.netflix.hystrix.exception HystrixBadRequestException)))
 
 (defn start-component [component auto-migration?]
   (if (:datasource component)
@@ -97,3 +100,30 @@
 ; add json capability to java.sql.Timestamp
 (extend Timestamp json/JSONWriter
   {:-write serialize-sql-timestamp})
+
+; helper for hystrix wrapping
+
+(defn ignore-nonfatal-psqlexception
+  "Do not close curcuits because PSQLException with non-fatal error was thrown."
+  [t]
+  (when (instance? PSQLException t)
+    (when-not (.startsWith (.getMessage t) "FATAL:")
+      "non-fatal postgresql message")))
+
+(defmacro generate-hystrix-commands
+  "Wraps all functions in the used namespace"
+  [& {:keys [prefix suffix ignore-exception-fn? namespace]
+      :or {prefix "cmd-"
+           suffix ""
+           ignore-exception-fn? ignore-nonfatal-psqlexception
+           namespace *ns*}}]
+  `(do ~@(map (fn [[n f]]
+                `(defcommand ~(symbol (str prefix (name n) suffix))
+                   [& args#]
+                   (try
+                     (apply ~f args#)
+                     (catch Throwable t#
+                       (if-let [msg# (~ignore-exception-fn? t#)]
+                         (throw (HystrixBadRequestException. msg# t#))
+                         (throw t#))))))
+              (ns-publics namespace))))
