@@ -32,12 +32,20 @@
             [io.clj.logging :refer [with-logging-context]]
             [io.sarnowski.swagger1st.util.api :as api]
             [clj-http.client :as client]
-            [com.netflix.hystrix.core :refer [defcommand]])
+            [com.netflix.hystrix.core :refer [defcommand]]
+            [overtone.at-at :as at]
+            [amazonica.aws.s3 :as s3]
+            [clojure.core.incubator :refer [dissoc-in]]
+            [clj-time.core :as t]
+            [clj-time.format :as tf]
+            [clojure.string :as string]
+            [clojure.data.json :as json])
   (:import (com.netflix.hystrix.contrib.metrics.eventstream HystrixMetricsStreamServlet)
            (org.eclipse.jetty.util.thread QueuedThreadPool)
            (org.eclipse.jetty.server Server)
            (org.eclipse.jetty.servlet ServletHolder ServletContextHandler)
-           (com.netflix.hystrix.exception HystrixRuntimeException)))
+           (com.netflix.hystrix.exception HystrixRuntimeException)
+           (java.io ByteArrayInputStream)))
 
 (defn flatten-parameters
   "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
@@ -172,6 +180,60 @@
     (when (:join? options true) (.join server))
     server))
 
+(defn add-logs
+  "Adds a list of log entries to the audit logs container."
+  [audit-logs logs]
+  (dosync
+   (alter audit-logs concat logs)))
+
+(defn empty-logs
+  "Returns all current audit logs and resets the container to empty."
+  [audit-logs]
+  (dosync
+   (let [previous-logs @audit-logs]
+     (ref-set audit-logs [])
+     previous-logs)))
+
+(defn collect-audit-logs
+  "Adds request map to audit-logs container."
+  [next-handler audit-logs enabled?]
+  (if enabled?
+    (do
+      (log/info "Logging all successful, modifying requests.")
+      (fn [request]
+        (let [{:keys [status] :as response} (next-handler request)]
+          (when (and (>= status 200) (< status 300))
+            (let [audit-log (-> request
+                                (assoc :logged-on (t/now))
+                                (dissoc :swagger)
+                                (dissoc :configuration)
+                                (dissoc-in [:tokeninfo "access_token"]))]
+              (add-logs audit-logs [audit-log])
+              response)))))
+    (do
+      (log/info "Not logging modifying requests.")
+      (fn [request]
+        (next-handler request)))))
+
+(def audit-logs-file-format)
+
+(defn store-audit-logs!
+  "Stores the audit logs in an S3 bucket."
+  [audit-logs bucket]
+  (let [previous-logs (empty-logs audit-logs)]
+    (try
+      (let [file-content (string/join "\n" (map json/write-str previous-logs))
+            file-stream (-> file-content (.getBytes "UTF-8") (ByteArrayInputStream.))
+            content-length (count file-content)
+            file-name (t/now)]
+        (s3/put-object :bucket-name bucket
+                       :key file-name
+                       :input-stream file-stream
+                       :metadata {:content-length content-length}))
+      (catch Throwable t
+        (add-logs audit-logs previous-logs)
+        (log/warn "Could not store audit logs because of %s." (str t))))))
+
 (defn start-component
   "Starts the http component."
   [component definition resolver-fn]
@@ -183,8 +245,8 @@
     (do
       (log/info "Starting HTTP daemon for API" definition)
       (let [configuration (:configuration component)
-
-
+            audit-logs-bucket (:audit-logs-bucket configuration)
+            audit-logs (ref [])
             handler (-> (s1st/context :yaml-cp definition)
                         (s1st/ring enrich-log-lines)
                         (s1st/ring s1stapi/add-hsts-header)
@@ -208,6 +270,7 @@
                                              (s1stsec/allow-all)))})
                         (s1st/ring enrich-log-lines)        ; now we also know the user, replace request info
                         (s1st/ring add-config-to-request configuration)
+                        (s1st/ring collect-audit-logs audit-logs audit-logs-bucket)
                         (s1st/executor :resolver resolver-fn))]
 
         (if (:no-listen? configuration)
