@@ -131,7 +131,8 @@
   (fn [request]
     (next-handler (assoc request :configuration configuration))))
 
-(defcommand fetch-tokeninfo
+(defcommand
+  fetch-tokeninfo
   [tokeninfo-url access-token]
   (let [response (client/get tokeninfo-url
                              {:query-params     {:access_token access-token}
@@ -184,15 +185,18 @@
   "Adds a list of log entries to the audit logs container."
   [audit-logs logs]
   (dosync
-   (alter audit-logs concat logs)))
+    (alter audit-logs concat logs)))
 
 (defn empty-logs
   "Returns all current audit logs and resets the container to empty."
   [audit-logs]
   (dosync
-   (let [previous-logs @audit-logs]
-     (ref-set audit-logs [])
-     previous-logs)))
+    (let [previous-logs @audit-logs]
+      (ref-set audit-logs [])
+      previous-logs)))
+
+(defn is-modifying? [{:keys [request-method]}]
+  (some #(= % request-method) [:post :put :patch :delete]))
 
 (defn collect-audit-logs
   "Adds request map to audit-logs container."
@@ -202,7 +206,9 @@
       (log/info "Logging all successful, modifying requests.")
       (fn [request]
         (let [{:keys [status] :as response} (next-handler request)]
-          (when (and (>= status 200) (< status 300))
+          (when (and (>= status 200)
+                     (< status 300)
+                     (is-modifying? request))
             (let [audit-log (-> request
                                 (assoc :logged-on (t/now))
                                 (dissoc :swagger)
@@ -212,27 +218,42 @@
               response)))))
     (do
       (log/info "Not logging modifying requests.")
-      (fn [request]
-        (next-handler request)))))
+      next-handler)))
 
 (def audit-logs-file-format)
+
+(def default-audit-flush-millis (* 5 60 1000))
 
 (defn store-audit-logs!
   "Stores the audit logs in an S3 bucket."
   [audit-logs bucket]
   (let [previous-logs (empty-logs audit-logs)]
-    (try
-      (let [file-content (string/join "\n" (map json/write-str previous-logs))
-            file-stream (-> file-content (.getBytes "UTF-8") (ByteArrayInputStream.))
-            content-length (count file-content)
-            file-name (t/now)]
-        (s3/put-object :bucket-name bucket
-                       :key file-name
-                       :input-stream file-stream
-                       :metadata {:content-length content-length}))
-      (catch Throwable t
-        (add-logs audit-logs previous-logs)
-        (log/warn "Could not store audit logs because of %s." (str t))))))
+    (when (seq previous-logs)
+      (try
+        (let [file-content (string/join "\n" (map json/write-str previous-logs))
+              file-stream (-> file-content (.getBytes "UTF-8") (ByteArrayInputStream.))
+              content-length (count file-content)
+              file-name (str (t/now))]
+          (s3/put-object :bucket-name bucket
+                         :key file-name
+                         :input-stream file-stream
+                         :metadata {:content-length content-length}))
+        (catch Throwable t
+          (add-logs audit-logs previous-logs)
+          (log/warn "Could not store audit logs because of %s." (str t)))))))
+
+(defn schedule-audit-log-flusher [bucket audit-logs configuration]
+  (when bucket
+    (let [flush-interval (or (:audit-flush-millis configuration) default-audit-flush-millis)
+          pool (at/mk-pool :cpu-count 1)]
+      (at/every flush-interval #(store-audit-logs! audit-logs bucket) pool :initial-delay flush-interval)
+      pool)))
+
+(defn stop-audit-log-flusher [bucket audit-logs pool]
+  (when bucket
+    (dosync
+      (at/stop-and-reset-pool! pool :strategy :kill)
+      (store-audit-logs! audit-logs bucket))))
 
 (defn start-component
   "Starts the http component."
@@ -273,15 +294,20 @@
                         (s1st/ring collect-audit-logs audit-logs audit-logs-bucket)
                         (s1st/executor :resolver resolver-fn))]
 
+        (merge component {:audit-logs-bucket audit-logs-bucket
+                          :audit-logs        audit-logs})
+
         (if (:no-listen? configuration)
-          (merge component {:httpd         nil
-                            :hystrix-httpd nil
-                            :handler       handler})
-          (merge component {:httpd         (jetty/run-jetty handler (merge configuration
-                                                                           {:join? false}))
-                            :hystrix-httpd (run-hystrix-jetty (merge configuration {:join? false
-                                                                                    :port  7979}))
-                            :handler       handler}))))))
+          (merge component {:httpd                nil
+                            :hystrix-httpd        nil
+                            :handler              handler
+                            :audit-log-flush-pool nil})
+          (merge component {:httpd                (jetty/run-jetty handler (merge configuration
+                                                                                  {:join? false}))
+                            :hystrix-httpd        (run-hystrix-jetty (merge configuration {:join? false
+                                                                                           :port  7979}))
+                            :handler              handler
+                            :audit-log-flush-pool (schedule-audit-log-flusher audit-logs-bucket audit-logs configuration)}))))))
 
 (defn stop-component
   "Stops the http component."
@@ -295,10 +321,14 @@
       (log/info "Stopping HTTP daemon.")
       (when-not (:no-listen? (:configuration component))
         (.stop (:httpd component))
-        (.stop (:hystrix-httpd component)))
-      (merge component {:httpd         nil
-                        :hystrix-httpd nil
-                        :handler       nil}))))
+        (.stop (:hystrix-httpd component))
+        (stop-audit-log-flusher (:audit-logs-bucket component) (:audit-logs component) (:audit-log-flush-pool component)))
+      (merge component {:httpd                nil
+                        :hystrix-httpd        nil
+                        :handler              nil
+                        :audit-logs-bucket    nil
+                        :audit-logs           nil
+                        :audit-log-flush-pool nil}))))
 
 (defmacro def-http-component
   "Creates an http component with your name and all your given dependencies. Those dependencies will also be available
