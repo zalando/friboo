@@ -213,6 +213,7 @@
                                 (assoc :logged-on (t/now))
                                 (dissoc :swagger)
                                 (dissoc :configuration)
+                                (dissoc :body)
                                 (dissoc-in [:tokeninfo "access_token"]))]
               (add-logs audit-logs [audit-log])
               response)))))
@@ -220,9 +221,16 @@
       (log/info "Not logging modifying requests.")
       next-handler)))
 
-(def audit-logs-file-format)
-
 (def default-audit-flush-millis (* 5 60 1000))
+
+(def audit-logs-file-formatter
+  "yyyy/MM/dd/{app-id}/{app-version}/{instance-id}/modifying-requests-hh-mm-ss.log
+  e.g. 2015/06/15/kio/b2/i123456/modifying-requests-08-31-52.log"
+  (let [app-id (or (System/getenv "APPLICATION_ID") "unknown-app")
+        app-version (or (System/getenv "APPLICATION_VERSION") "unknown-version")
+        instance-id (or (System/getenv "INSTANCE_ID") "unknown-instance")
+        format-string (format "yyyy/MM/dd/'%s/%s/%s/modifying-requests'-HH-mm-ss'.log'" app-id app-version instance-id)]
+    (tf/formatter format-string t/utc)))
 
 (defn store-audit-logs!
   "Stores the audit logs in an S3 bucket."
@@ -233,7 +241,7 @@
         (let [file-content (string/join "\n" (map json/write-str previous-logs))
               file-stream (-> file-content (.getBytes "UTF-8") (ByteArrayInputStream.))
               content-length (count file-content)
-              file-name (str (t/now))]
+              file-name (tf/unparse audit-logs-file-formatter (t/now))]
           (s3/put-object :bucket-name bucket
                          :key file-name
                          :input-stream file-stream
@@ -242,14 +250,14 @@
           (add-logs audit-logs previous-logs)
           (log/warn "Could not store audit logs because of %s." (str t)))))))
 
-(defn schedule-audit-log-flusher [bucket audit-logs configuration]
+(defn schedule-audit-log-flusher! [bucket audit-logs configuration]
   (when bucket
     (let [flush-interval (or (:audit-flush-millis configuration) default-audit-flush-millis)
           pool (at/mk-pool :cpu-count 1)]
       (at/every flush-interval #(store-audit-logs! audit-logs bucket) pool :initial-delay flush-interval)
       pool)))
 
-(defn stop-audit-log-flusher [bucket audit-logs pool]
+(defn stop-audit-log-flusher! [bucket audit-logs pool]
   (when bucket
     (dosync
       (at/stop-and-reset-pool! pool :strategy :kill)
@@ -307,7 +315,7 @@
                             :hystrix-httpd        (run-hystrix-jetty (merge configuration {:join? false
                                                                                            :port  7979}))
                             :handler              handler
-                            :audit-log-flush-pool (schedule-audit-log-flusher audit-logs-bucket audit-logs configuration)}))))))
+                            :audit-log-flush-pool (schedule-audit-log-flusher! audit-logs-bucket audit-logs configuration)}))))))
 
 (defn stop-component
   "Stops the http component."
@@ -322,7 +330,7 @@
       (when-not (:no-listen? (:configuration component))
         (.stop (:httpd component))
         (.stop (:hystrix-httpd component))
-        (stop-audit-log-flusher (:audit-logs-bucket component) (:audit-logs component) (:audit-log-flush-pool component)))
+        (stop-audit-log-flusher! (:audit-logs-bucket component) (:audit-logs component) (:audit-log-flush-pool component)))
       (merge component {:httpd                nil
                         :hystrix-httpd        nil
                         :handler              nil
