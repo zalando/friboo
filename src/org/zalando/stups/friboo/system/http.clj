@@ -216,8 +216,8 @@
                                 (dissoc :body)
                                 (dissoc-in [:tokeninfo "access_token"])
                                 (dissoc-in [:headers "authorization"]))]
-              (add-logs audit-logs [audit-log])
-              response)))))
+              (add-logs audit-logs [audit-log])))
+          response)))
     (do
       (log/info "Not logging modifying requests.")
       next-handler)))
