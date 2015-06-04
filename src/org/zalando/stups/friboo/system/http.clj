@@ -196,7 +196,7 @@
       previous-logs)))
 
 (defn is-modifying? [{:keys [request-method]}]
-  (some #(= % request-method) [:post :put :patch :delete]))
+  (#{:post :put :patch :delete} request-method))
 
 (defn collect-audit-logs
   "Adds request map to audit-logs container."
@@ -214,14 +214,15 @@
                                 (dissoc :swagger)
                                 (dissoc :configuration)
                                 (dissoc :body)
-                                (dissoc-in [:tokeninfo "access_token"]))]
+                                (dissoc-in [:tokeninfo "access_token"])
+                                (dissoc-in [:headers "authorization"]))]
               (add-logs audit-logs [audit-log])
               response)))))
     (do
       (log/info "Not logging modifying requests.")
       next-handler)))
 
-(def default-audit-flush-millis (* 5 60 1000))
+(def default-audit-flush-millis (* 10 1000))
 
 (def audit-logs-file-formatter
   "yyyy/MM/dd/{app-id}/{app-version}/{instance-id}/modifying-requests-hh-mm-ss.log
@@ -302,20 +303,21 @@
                         (s1st/ring collect-audit-logs audit-logs audit-logs-bucket)
                         (s1st/executor :resolver resolver-fn))]
 
-        (merge component {:audit-logs-bucket audit-logs-bucket
-                          :audit-logs        audit-logs})
-
         (if (:no-listen? configuration)
           (merge component {:httpd                nil
                             :hystrix-httpd        nil
                             :handler              handler
-                            :audit-log-flush-pool nil})
+                            :audit-log-flush-pool nil
+                            :audit-logs-bucket    audit-logs-bucket
+                            :audit-logs           audit-logs})
           (merge component {:httpd                (jetty/run-jetty handler (merge configuration
                                                                                   {:join? false}))
                             :hystrix-httpd        (run-hystrix-jetty (merge configuration {:join? false
                                                                                            :port  7979}))
                             :handler              handler
-                            :audit-log-flush-pool (schedule-audit-log-flusher! audit-logs-bucket audit-logs configuration)}))))))
+                            :audit-log-flush-pool (schedule-audit-log-flusher! audit-logs-bucket audit-logs configuration)
+                            :audit-logs-bucket    audit-logs-bucket
+                            :audit-logs           audit-logs}))))))
 
 (defn stop-component
   "Stops the http component."
