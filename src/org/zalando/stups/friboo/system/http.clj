@@ -45,7 +45,8 @@
            (org.eclipse.jetty.server Server)
            (org.eclipse.jetty.servlet ServletHolder ServletContextHandler)
            (com.netflix.hystrix.exception HystrixRuntimeException)
-           (java.io ByteArrayInputStream)))
+           (java.io ByteArrayInputStream)
+           (java.util UUID)))
 
 (defn flatten-parameters
   "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
@@ -226,10 +227,10 @@
 
 (def audit-logs-file-formatter
   "yyyy/MM/dd/{app-id}/{app-version}/{instance-id}/modifying-requests-hh-mm-ss.log
-  e.g. 2015/06/15/kio/b2/i123456/modifying-requests-08-31-52.log"
+  e.g. 2015/06/15/kio/b2/123456/modifying-requests-08-31-52.log"
   (let [app-id (or (System/getenv "APPLICATION_ID") "unknown-app")
         app-version (or (System/getenv "APPLICATION_VERSION") "unknown-version")
-        instance-id (or (System/getenv "INSTANCE_ID") "unknown-instance")
+        instance-id (or (System/getenv "INSTANCE_ID") (UUID/randomUUID))
         format-string (format "yyyy/MM/dd/'%s/%s/%s/modifying-requests'-HH-mm-ss'.log'" app-id app-version instance-id)]
     (tf/formatter format-string t/utc)))
 

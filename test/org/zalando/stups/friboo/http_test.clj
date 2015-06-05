@@ -1,7 +1,10 @@
 (ns org.zalando.stups.friboo.http-test
   (:require
     [clojure.test :refer :all]
-    [org.zalando.stups.friboo.system.http :refer :all]))
+    [org.zalando.stups.friboo.system.http :refer :all]
+    [amazonica.aws.s3 :as s3]
+    [clj-time.format :as tf])
+  (:import (clojure.java io$reader)))
 
 (deftest test-map-authorization-header-simple
   (is (= "xyz" (map-authorization-header "xyz")))
@@ -68,10 +71,30 @@
     (is (= dummy-response (handler-fn dummy-request)))
     (is (seq @logs))
     (let [line (first @logs)]
-      (is (= (set (keys line)) #{:tokeninfo :headers :parameters :request-method :logged-on})))))
+      (is (= (set (keys line)) #{:tokeninfo :headers :parameters :request-method :logged-on}))
+      (is (= (:tokeninfo line) {"uid" "testuser"}))
+      (is (= (:headers line) {"content-type" "application/json"})))))
 
-(deftest test-collect-no-audit-logs-when-no-success
+(deftest test-collect-no-audit-logs-when-no-success1
   (let [dummy-response {:status 400 :body "foobar"}
+        dummy-request {:swagger        "will be erased"
+                       :configuration  "will be erased"
+                       :body           "will be erased"
+                       :tokeninfo      {"access_token" "will be erased"
+                                        "uid"          "testuser"}
+                       :headers        {"authorization" "will be erased"
+                                        "content-type"  "application/json"}
+                       :parameters     {:foo "bar"}
+                       :request-method :post}
+        next-handler (constantly dummy-response)
+        logs (ref [])
+        enabled? true
+        handler-fn (collect-audit-logs next-handler logs enabled?)]
+    (is (= dummy-response (handler-fn dummy-request)))
+    (is (empty? @logs))))
+
+(deftest test-collect-no-audit-logs-when-no-success2
+  (let [dummy-response {:status 100 :body "foobar"}
         dummy-request {:swagger        "will be erased"
                        :configuration  "will be erased"
                        :body           "will be erased"
@@ -107,3 +130,50 @@
     (is (= dummy-response (handler-fn dummy-request)))
     (is (empty? @logs))))
 
+(deftest test-collect-no-audit-logs-when-disabled
+  (let [dummy-response {:status 200 :body "foobar"}
+        dummy-request {:swagger        "will be erased"
+                       :configuration  "will be erased"
+                       :body           "will be erased"
+                       :tokeninfo      {"access_token" "will be erased"
+                                        "uid"          "testuser"}
+                       :headers        {"authorization" "will be erased"
+                                        "content-type"  "application/json"}
+                       :parameters     {:foo "bar"}
+                       :request-method :post}
+        next-handler (constantly dummy-response)
+        logs (ref [])
+        enabled? false
+        handler-fn (collect-audit-logs next-handler logs enabled?)]
+    (is (= dummy-response (handler-fn dummy-request)))
+    (is (empty? @logs))))
+
+(defn track
+  "Adds a tuple on call for an action."
+  ([a action]
+   (fn [& all-args]
+     (swap! a conj {:key  action
+                    :args (into [] all-args)}))))
+
+(deftest test-store-audit-logs
+  (let [calls (atom [])
+        audit-logs (ref [{:foo "bar"} {:foo "baz"}])]
+    (with-redefs [s3/put-object (track calls :s3-put)
+                  audit-logs-file-formatter (tf/formatter "'test-file'")]
+      (store-audit-logs! audit-logs "test-bucket")
+
+      (is (= 1 (count @calls)))
+      (let [args (apply hash-map (:args (first @calls)))]
+        (is (= (:key args) "test-file"))
+        (is (= (:bucket-name args) "test-bucket"))
+        (is (= (get-in args [:metadata :content-length]) 27))
+        (is (= (with-open [rdr (clojure.java.io/reader (:input-stream args))]
+                 (reduce conj [] (line-seq rdr)))
+               ["{\"foo\":\"bar\"}", "{\"foo\":\"baz\"}"]))
+        (is (empty? @audit-logs))))))
+
+(deftest test-store-audit-logs-failed
+  (let [audit-logs (ref [{:foo "bar"} {:foo "baz"}])]
+    (with-redefs [s3/put-object (fn [& _] (throw (Exception.)))]
+      (store-audit-logs! audit-logs "test-bucket")
+      (is (= (count @audit-logs) 2)))))
