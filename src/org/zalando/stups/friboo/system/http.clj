@@ -252,11 +252,11 @@
           (add-logs audit-logs previous-logs)
           (log/warn "Could not store audit logs because of %s." (str t)))))))
 
-(defn schedule-audit-log-flusher! [bucket audit-logs configuration]
+(defn schedule-audit-log-flusher!
+  [bucket audit-logs {:keys [audit-flush-millis] :or {audit-flush-millis default-audit-flush-millis}}]
   (when bucket
-    (let [flush-interval (or (:audit-flush-millis configuration) default-audit-flush-millis)
-          pool (at/mk-pool :cpu-count 1)]
-      (at/every flush-interval #(store-audit-logs! audit-logs bucket) pool :initial-delay flush-interval)
+    (let [pool (at/mk-pool :cpu-count 1)]
+      (at/every audit-flush-millis #(store-audit-logs! audit-logs bucket) pool :initial-delay audit-flush-millis)
       pool)))
 
 (defn stop-audit-log-flusher! [bucket audit-logs pool]

@@ -3,8 +3,8 @@
     [clojure.test :refer :all]
     [org.zalando.stups.friboo.system.http :refer :all]
     [amazonica.aws.s3 :as s3]
-    [clj-time.format :as tf])
-  (:import (clojure.java io$reader)))
+    [clj-time.format :as tf]
+    [overtone.at-at :as at]))
 
 (deftest test-map-authorization-header-simple
   (is (= "xyz" (map-authorization-header "xyz")))
@@ -172,8 +172,37 @@
                ["{\"foo\":\"bar\"}", "{\"foo\":\"baz\"}"]))
         (is (empty? @audit-logs))))))
 
+(deftest test-store-empty-audit-logs
+  (let [calls (atom [])
+        audit-logs (ref [])]
+    (with-redefs [s3/put-object (track calls :s3-put)
+                  audit-logs-file-formatter (tf/formatter "'test-file'")]
+      (store-audit-logs! audit-logs "test-bucket")
+
+      (is (empty? @calls)))))
+
 (deftest test-store-audit-logs-failed
   (let [audit-logs (ref [{:foo "bar"} {:foo "baz"}])]
     (with-redefs [s3/put-object (fn [& _] (throw (Exception.)))]
       (store-audit-logs! audit-logs "test-bucket")
       (is (= (count @audit-logs) 2)))))
+
+(deftest test-schedule-audit-log-flusher
+  (let [calls (atom [])]
+    (with-redefs [at/every (track calls :schedule)]
+      (let [pool (schedule-audit-log-flusher! "test-bucket" (ref []) {:audit-flush-millis 1000})]
+        (is pool)
+        (is (= (count @calls) 1))))))
+
+(deftest test-stop-audit-log-flusher
+  (let [calls (atom [])
+        bucket "test-bucket"
+        logs (ref [])
+        pool (atom {})]
+    (with-redefs [at/stop-and-reset-pool! (track calls :stop)
+                  store-audit-logs! (track calls :store-logs)]
+      (stop-audit-log-flusher! bucket logs pool)
+
+      (is (= (count @calls) 2))
+      (is (some #(= (:key %) :stop) @calls))
+      (is (some #(= (:key %) :store-logs) @calls)))))
