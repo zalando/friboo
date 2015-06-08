@@ -41,7 +41,7 @@
   (let [logs (ref ["foo" "bar"])
         previous-logs (empty-logs logs)]
     (is (empty? @logs))
-    (is (= ["foo" "bar"]))))
+    (is (= ["foo" "bar"] previous-logs))))
 
 (deftest test-is-modifying
   (let [methods [:post :put :patch :delete]]
