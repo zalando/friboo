@@ -71,6 +71,14 @@ The component has to be initialized with its configuration in the `:configuratio
 
 * `:cors-origin` may be set to a domain mask for CORS access (e.g. `*.zalando.de`).
 * All configurations that Jetty supports.
+* All modifying requests (POST, PUT, PATCH, DELETE) will be logged to the `:audit-logs-bucket`, if the property is set.
+    * the value should address the name of an S3 bucket
+    * the application must have write access to this bucket
+    * the frequency, with which the log files are written, can be adjusted with `:audit-flush-millis` (defaults to 10s)
+        * of course, no empty files will be written
+    * to build a meaningful file name pattern, the environment variables `APPLICATION_ID`, `APPLICATION_VERSION`
+      and `INSTANCE_ID` are used
+        * `INSTANCE_ID` defaults to random UUID
 
 ### DB component
 

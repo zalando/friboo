@@ -32,12 +32,21 @@
             [io.clj.logging :refer [with-logging-context]]
             [io.sarnowski.swagger1st.util.api :as api]
             [clj-http.client :as client]
-            [com.netflix.hystrix.core :refer [defcommand]])
+            [com.netflix.hystrix.core :refer [defcommand]]
+            [overtone.at-at :as at]
+            [amazonica.aws.s3 :as s3]
+            [clojure.core.incubator :refer [dissoc-in]]
+            [clj-time.core :as t]
+            [clj-time.format :as tf]
+            [clojure.string :as string]
+            [clojure.data.json :as json])
   (:import (com.netflix.hystrix.contrib.metrics.eventstream HystrixMetricsStreamServlet)
            (org.eclipse.jetty.util.thread QueuedThreadPool)
            (org.eclipse.jetty.server Server)
            (org.eclipse.jetty.servlet ServletHolder ServletContextHandler)
-           (com.netflix.hystrix.exception HystrixRuntimeException)))
+           (com.netflix.hystrix.exception HystrixRuntimeException)
+           (java.io ByteArrayInputStream)
+           (java.util UUID)))
 
 (defn flatten-parameters
   "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
@@ -123,7 +132,8 @@
   (fn [request]
     (next-handler (assoc request :configuration configuration))))
 
-(defcommand fetch-tokeninfo
+(defcommand
+  fetch-tokeninfo
   [tokeninfo-url access-token]
   (let [response (client/get tokeninfo-url
                              {:query-params     {:access_token access-token}
@@ -172,6 +182,89 @@
     (when (:join? options true) (.join server))
     server))
 
+(defn add-logs
+  "Adds a list of log entries to the audit logs container."
+  [audit-logs logs]
+  (dosync
+    (alter audit-logs concat logs)))
+
+(defn empty-logs
+  "Returns all current audit logs and resets the container to empty."
+  [audit-logs]
+  (dosync
+    (let [previous-logs @audit-logs]
+      (ref-set audit-logs [])
+      previous-logs)))
+
+(defn is-modifying? [{:keys [request-method]}]
+  (#{:post :put :patch :delete} request-method))
+
+(defn collect-audit-logs
+  "Adds request map to audit-logs container."
+  [next-handler audit-logs enabled?]
+  (if enabled?
+    (do
+      (log/info "Logging all successful, modifying requests.")
+      (fn [request]
+        (let [{:keys [status] :as response} (next-handler request)]
+          (when (and (>= status 200)
+                     (< status 300)
+                     (is-modifying? request))
+            (let [audit-log (-> request
+                                (assoc :logged-on (t/now))
+                                (dissoc :swagger)
+                                (dissoc :configuration)
+                                (dissoc :body)
+                                (dissoc-in [:tokeninfo "access_token"])
+                                (dissoc-in [:headers "authorization"]))]
+              (add-logs audit-logs [audit-log])))
+          response)))
+    (do
+      (log/info "Not logging modifying requests.")
+      next-handler)))
+
+(def default-audit-flush-millis (* 10 1000))
+
+(def audit-logs-file-formatter
+  "yyyy/MM/dd/{app-id}/{app-version}/{instance-id}/modifying-requests-hh-mm-ss.log
+  e.g. 2015/06/15/kio/b2/123456/modifying-requests-08-31-52.log"
+  (let [app-id (or (System/getenv "APPLICATION_ID") "unknown-app")
+        app-version (or (System/getenv "APPLICATION_VERSION") "unknown-version")
+        instance-id (or (System/getenv "INSTANCE_ID") (UUID/randomUUID))
+        format-string (format "yyyy/MM/dd/'%s/%s/%s/modifying-requests'-HH-mm-ss'.log'" app-id app-version instance-id)]
+    (tf/formatter format-string t/utc)))
+
+(defn store-audit-logs!
+  "Stores the audit logs in an S3 bucket."
+  [audit-logs bucket]
+  (let [previous-logs (empty-logs audit-logs)]
+    (when (seq previous-logs)
+      (try
+        (let [file-content (string/join "\n" (map json/write-str previous-logs))
+              file-stream (-> file-content (.getBytes "UTF-8") (ByteArrayInputStream.))
+              content-length (count file-content)
+              file-name (tf/unparse audit-logs-file-formatter (t/now))]
+          (s3/put-object :bucket-name bucket
+                         :key file-name
+                         :input-stream file-stream
+                         :metadata {:content-length content-length}))
+        (catch Throwable t
+          (add-logs audit-logs previous-logs)
+          (log/warn "Could not store audit logs because of %s." (str t)))))))
+
+(defn schedule-audit-log-flusher!
+  [bucket audit-logs {:keys [audit-flush-millis] :or {audit-flush-millis default-audit-flush-millis}}]
+  (when bucket
+    (let [pool (at/mk-pool :cpu-count 1)]
+      (at/every audit-flush-millis #(store-audit-logs! audit-logs bucket) pool :initial-delay audit-flush-millis)
+      pool)))
+
+(defn stop-audit-log-flusher! [bucket audit-logs pool]
+  (when bucket
+    (dosync
+      (at/stop-and-reset-pool! pool :strategy :kill)
+      (store-audit-logs! audit-logs bucket))))
+
 (defn start-component
   "Starts the http component."
   [component definition resolver-fn]
@@ -183,8 +276,8 @@
     (do
       (log/info "Starting HTTP daemon for API" definition)
       (let [configuration (:configuration component)
-
-
+            audit-logs-bucket (:audit-logs-bucket configuration)
+            audit-logs (ref [])
             handler (-> (s1st/context :yaml-cp definition)
                         (s1st/ring enrich-log-lines)
                         (s1st/ring s1stapi/add-hsts-header)
@@ -208,17 +301,24 @@
                                              (s1stsec/allow-all)))})
                         (s1st/ring enrich-log-lines)        ; now we also know the user, replace request info
                         (s1st/ring add-config-to-request configuration)
+                        (s1st/ring collect-audit-logs audit-logs audit-logs-bucket)
                         (s1st/executor :resolver resolver-fn))]
 
         (if (:no-listen? configuration)
-          (merge component {:httpd         nil
-                            :hystrix-httpd nil
-                            :handler       handler})
-          (merge component {:httpd         (jetty/run-jetty handler (merge configuration
-                                                                           {:join? false}))
-                            :hystrix-httpd (run-hystrix-jetty (merge configuration {:join? false
-                                                                                    :port  7979}))
-                            :handler       handler}))))))
+          (merge component {:httpd                nil
+                            :hystrix-httpd        nil
+                            :handler              handler
+                            :audit-log-flush-pool nil
+                            :audit-logs-bucket    audit-logs-bucket
+                            :audit-logs           audit-logs})
+          (merge component {:httpd                (jetty/run-jetty handler (merge configuration
+                                                                                  {:join? false}))
+                            :hystrix-httpd        (run-hystrix-jetty (merge configuration {:join? false
+                                                                                           :port  7979}))
+                            :handler              handler
+                            :audit-log-flush-pool (schedule-audit-log-flusher! audit-logs-bucket audit-logs configuration)
+                            :audit-logs-bucket    audit-logs-bucket
+                            :audit-logs           audit-logs}))))))
 
 (defn stop-component
   "Stops the http component."
@@ -232,10 +332,14 @@
       (log/info "Stopping HTTP daemon.")
       (when-not (:no-listen? (:configuration component))
         (.stop (:httpd component))
-        (.stop (:hystrix-httpd component)))
-      (merge component {:httpd         nil
-                        :hystrix-httpd nil
-                        :handler       nil}))))
+        (.stop (:hystrix-httpd component))
+        (stop-audit-log-flusher! (:audit-logs-bucket component) (:audit-logs component) (:audit-log-flush-pool component)))
+      (merge component {:httpd                nil
+                        :hystrix-httpd        nil
+                        :handler              nil
+                        :audit-logs-bucket    nil
+                        :audit-logs           nil
+                        :audit-log-flush-pool nil}))))
 
 (defmacro def-http-component
   "Creates an http component with your name and all your given dependencies. Those dependencies will also be available
