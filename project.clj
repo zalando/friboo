@@ -29,7 +29,7 @@
                  [amazonica "0.3.23" :exclusions [org.apache.httpcomponents/httpclient joda-time]]
                  [org.clojure/data.codec "0.1.0"]
                  [overtone/at-at "1.2.0"]
-                 [org.zalando.stups/tokens "0.6.0"]
+                 [org.zalando.stups/tokens "0.7.0"]
                  [com.netflix.hystrix/hystrix-clj "1.4.10"]
                  [com.netflix.hystrix/hystrix-core "1.4.10"]
                  [com.netflix.hystrix/hystrix-metrics-event-stream "1.4.10"]
