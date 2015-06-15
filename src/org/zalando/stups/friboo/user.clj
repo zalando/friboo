@@ -46,10 +46,13 @@
                          :required-team team
                          :user-teams    in-team?})))))
 
+(defn trim-slashes [string]
+  (when string (clojure.string/replace string #"^/?([^/]+)/?$" "$1")))
+
 (defn require-realms
   "Throws an exception if user is not in the given realms, else returns the user's realm"
   [realms {:keys [tokeninfo]}]
-  (let [realm (get tokeninfo "realm")
+  (let [realm (-> (get tokeninfo "realm") trim-slashes)
         user-id (get tokeninfo "uid")]
     (if (contains? realms realm)
       realm
