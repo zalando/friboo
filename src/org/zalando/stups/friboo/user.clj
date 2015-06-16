@@ -46,10 +46,19 @@
                          :required-team team
                          :user-teams    in-team?})))))
 
+(defn trim-realm
+  "Trims leading and trailing slashes from the given realm.
+  If input is the top-level realm \"/\", leaves it as is."
+  [string]
+  (when string
+    (if (= string "/")
+      string
+      (clojure.string/replace string #"^\/*(.*?)\/*$" "$1"))))
+
 (defn require-realms
   "Throws an exception if user is not in the given realms, else returns the user's realm"
   [realms {:keys [tokeninfo]}]
-  (let [realm (get tokeninfo "realm")
+  (let [realm (trim-realm (get tokeninfo "realm"))
         user-id (get tokeninfo "uid")]
     (if (contains? realms realm)
       realm
