@@ -5,18 +5,17 @@
   (:import (clojure.lang ExceptionInfo)))
 
 (deftest test-trim-slashes
-  ; first = input; second = expected output
-  (doseq [test-pair {"employees"        "employees"
-                     "/employees"       "employees"
-                     "employees/"       "employees"
-                     "/employees/"      "employees"
-                     "//employees//"    "employees"
-                     "/"                "/"
-                     "employees/tech"   "employees/tech"
-                     "/employees/tech"  "employees/tech"
-                     "employees/tech/"  "employees/tech"
-                     "/employees/tech/" "employees/tech"}]
-    (is (= (second test-pair) (trim-realm (first test-pair))))))
+  (are [input expected-output] (= (trim-realm input) expected-output)
+                               "employees" "employees"
+                               "/employees" "employees"
+                               "employees/" "employees"
+                               "/employees/" "employees"
+                               "//employees//" "employees"
+                               "/" "/"
+                               "employees/tech" "employees/tech"
+                               "/employees/tech" "employees/tech"
+                               "employees/tech/" "employees/tech"
+                               "/employees/tech/" "employees/tech"))
 
 (deftest test-trim-slashes-resilience-empty
   (is (= "" (trim-realm ""))))
