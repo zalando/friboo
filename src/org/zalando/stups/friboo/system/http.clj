@@ -45,7 +45,7 @@
            (org.eclipse.jetty.server Server)
            (org.eclipse.jetty.servlet ServletHolder ServletContextHandler)
            (com.netflix.hystrix.exception HystrixRuntimeException)
-           (java.io ByteArrayInputStream)
+           (java.io ByteArrayInputStream InputStream PrintWriter)
            (java.util UUID)))
 
 (defn flatten-parameters
@@ -181,6 +181,12 @@
     (.start server)
     (when (:join? options true) (.join server))
     server))
+
+; Mock json capability for java.io.InputStream.
+; Needed to serialize non-text requests, e.g. in Pierone
+(extend InputStream json/JSONWriter
+  {:-write (fn [^InputStream is #^PrintWriter out]
+             (.print out (json/write-str (str "Some " (.getName (class is)) ". Content omitted."))))})
 
 (defn add-logs
   "Adds a list of log entries to the audit logs container."
