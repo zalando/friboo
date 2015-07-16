@@ -12,4 +12,11 @@ public final class TransactionMarker {
     public static Object run(Object name, IFn fn) {
         return fn.invoke();
     }
+
+    /**
+     * This method can be matched in AppDynamics and used to parse the first parameter for transaction naming
+     */
+    public static Object runJob(Object name, IFn fn) {
+        return fn.invoke();
+    }
 }
