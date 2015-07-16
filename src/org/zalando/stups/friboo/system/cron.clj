@@ -3,7 +3,8 @@
             [org.zalando.stups.friboo.log :as log]
             [org.zalando.stups.friboo.config :refer [require-config]]
             [overtone.at-at :as at])
-  (:import (overtone.at_at RecurringJob ScheduledJob)))
+  (:import (overtone.at_at RecurringJob ScheduledJob)
+           (org.zalando.stups.friboo TransactionMarker)))
 
 ;; got from overtaone/at-at
 
@@ -38,6 +39,19 @@
   (cond
     (= RecurringJob (type job)) (recurring-job-string job)
     (= ScheduledJob (type job)) (scheduled-job-string job)))
+
+(defmacro job
+  "Produces a non-argument function that also marks the execution for transaction naming."
+  [f & args]
+  (let [{:keys [ns name]} (-> f resolve meta)
+        tx-name# (str ns "/" name)]
+    `(fn []
+       (try
+         (TransactionMarker/run ~tx-name# #(~f ~@args))
+         (catch Exception e#
+           (log/error e# "No job catch-all defined for job %s; bubbled up exception; no further executions will occur!"
+                      ~tx-name#)
+           (throw e#))))))
 
 ;; component
 

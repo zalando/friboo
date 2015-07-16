@@ -46,7 +46,8 @@
            (org.eclipse.jetty.servlet ServletHolder ServletContextHandler)
            (com.netflix.hystrix.exception HystrixRuntimeException)
            (java.io ByteArrayInputStream InputStream PrintWriter)
-           (java.util UUID)))
+           (java.util UUID)
+           (org.zalando.stups.friboo TransactionMarker)))
 
 (defn flatten-parameters
   "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
@@ -271,6 +272,13 @@
       (at/stop-and-reset-pool! pool :strategy :kill)
       (store-audit-logs! audit-logs bucket))))
 
+(defn mark-transaction
+  "Trigger the TransactionMarker with the swagger operationId for instrumentalisation."
+  [next-handler]
+  (fn [request]
+    (let [operation-id (get (-> request :swagger :request) "operationId")]
+      (TransactionMarker/run operation-id #(next-handler request)))))
+
 (defn start-component
   "Starts the http component."
   [component definition resolver-fn]
@@ -294,6 +302,7 @@
                         (s1st/discoverer)
                         (s1st/ring wrap-params)
                         (s1st/mapper)
+                        (s1st/ring mark-transaction)
                         (s1st/parser)
                         (s1st/ring convert-hystrix-exceptions)
                         (s1st/protector {"oauth2"

@@ -10,6 +10,8 @@
 
   :min-lein-version "2.0.0"
 
+  :java-source-paths ["java"]
+
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.zalando/swagger1st "0.15.0"]
                  [com.stuartsierra/component "0.2.3"]
