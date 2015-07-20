@@ -47,7 +47,7 @@
            (com.netflix.hystrix.exception HystrixRuntimeException)
            (java.io ByteArrayInputStream InputStream PrintWriter)
            (java.util UUID)
-           (org.zalando.stups.friboo TransactionMarker)))
+           (org.zalando.stups.txdemarcator Transactions)))
 
 (defn flatten-parameters
   "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
@@ -276,8 +276,10 @@
   "Trigger the TransactionMarker with the swagger operationId for instrumentalisation."
   [next-handler]
   (fn [request]
-    (let [operation-id (get (-> request :swagger :request) "operationId")]
-      (TransactionMarker/run operation-id #(next-handler request)))))
+    (let [operation-id (get-in request [:swagger :request "operationId"])
+          tx-parent-id (get-in request [:headers Transactions/APPDYNAMICS_HTTP_HEADER])]
+      (log/info "foobar")
+      (Transactions/runInTransaction operation-id tx-parent-id #(next-handler request)))))
 
 (defn start-component
   "Starts the http component."

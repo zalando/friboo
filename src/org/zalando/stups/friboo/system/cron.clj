@@ -4,7 +4,7 @@
             [org.zalando.stups.friboo.config :refer [require-config]]
             [overtone.at-at :as at])
   (:import (overtone.at_at RecurringJob ScheduledJob)
-           (org.zalando.stups.friboo TransactionMarker)))
+           (org.zalando.stups.txdemarcator Transactions)))
 
 ;; got from overtaone/at-at
 
@@ -47,7 +47,7 @@
         tx-name# (str ns "/" name)]
     `(fn []
        (try
-         (TransactionMarker/runJob ~tx-name# #(~f ~@args))
+         (Transactions/runInTransaction ~tx-name# nil #(~f ~@args))
          (catch Exception e#
            (log/error e# "No job catch-all defined for job %s; bubbled up exception; no further executions will occur!"
                       ~tx-name#)
