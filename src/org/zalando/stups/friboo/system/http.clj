@@ -278,7 +278,6 @@
   (fn [request]
     (let [operation-id (get-in request [:swagger :request "operationId"])
           tx-parent-id (get-in request [:headers Transactions/APPDYNAMICS_HTTP_HEADER])]
-      (log/info "foobar")
       (Transactions/runInTransaction operation-id tx-parent-id #(next-handler request)))))
 
 (defn start-component

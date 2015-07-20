@@ -47,7 +47,7 @@
         tx-name# (str ns "/" name)]
     `(fn []
        (try
-         (Transactions/runInTransaction ~tx-name# nil #(~f ~@args))
+         (Transactions/runAsBackgroundTransaction ~tx-name# #(~f ~@args))
          (catch Exception e#
            (log/error e# "No job catch-all defined for job %s; bubbled up exception; no further executions will occur!"
                       ~tx-name#)
