@@ -11,42 +11,29 @@
 ; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 ; See the License for the specific language governing permissions and
 ; limitations under the License.
-
 (ns org.zalando.stups.friboo.system.http
-  (:require [io.sarnowski.swagger1st.core :as s1st]
+  (:require [com.stuartsierra.component :refer [Lifecycle]]
+            [io.sarnowski.swagger1st.core :as s1st]
             [io.sarnowski.swagger1st.executor :as s1stexec]
             [io.sarnowski.swagger1st.util.api :as s1stapi]
             [io.sarnowski.swagger1st.util.security :as s1stsec]
-            [ring.middleware.params :refer [wrap-params]]
-            [ring.adapter.jetty :as jetty]
-            [ring.util.servlet :as servlet]
-            [com.stuartsierra.component :refer [Lifecycle]]
+            [io.sarnowski.swagger1st.util.api :as api]
+            [org.zalando.stups.friboo.ring :as ring]
             [org.zalando.stups.friboo.log :as log]
             [org.zalando.stups.friboo.config :refer [require-config]]
+            [org.zalando.stups.friboo.system.metrics :refer [collect-zmon-metrics]]
+            [org.zalando.stups.friboo.system.audit-log :refer [collect-audit-logs]]
+            [ring.adapter.jetty :as jetty]
             [ring.util.response :as r]
+            [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.resource :refer [wrap-resource]]
             [ring.middleware.content-type :refer [wrap-content-type]]
             [ring.middleware.not-modified :refer [wrap-not-modified]]
-            [org.zalando.stups.friboo.ring :as ring]
             [clojure.data.codec.base64 :as b64]
             [io.clj.logging :refer [with-logging-context]]
-            [io.sarnowski.swagger1st.util.api :as api]
             [clj-http.client :as client]
-            [com.netflix.hystrix.core :refer [defcommand]]
-            [overtone.at-at :as at]
-            [amazonica.aws.s3 :as s3]
-            [clojure.core.incubator :refer [dissoc-in]]
-            [clj-time.core :as t]
-            [clj-time.format :as tf]
-            [clojure.string :as string]
-            [clojure.data.json :as json])
-  (:import (com.netflix.hystrix.contrib.metrics.eventstream HystrixMetricsStreamServlet)
-           (org.eclipse.jetty.util.thread QueuedThreadPool)
-           (org.eclipse.jetty.server Server)
-           (org.eclipse.jetty.servlet ServletHolder ServletContextHandler)
-           (com.netflix.hystrix.exception HystrixRuntimeException)
-           (java.io ByteArrayInputStream InputStream PrintWriter)
-           (java.util UUID)
+            [com.netflix.hystrix.core :refer [defcommand]])
+  (:import (com.netflix.hystrix.exception HystrixRuntimeException)
            (org.zalando.stups.friboo TransactionMarker)))
 
 (defn flatten-parameters
@@ -162,116 +149,6 @@
           (log/warn (str "Hystrix: " (.getMessage e) " %s occurred, because %s") failure-type reason)
           (api/throw-error 503 "A dependency is unavailable."))))))
 
-(defn run-hystrix-jetty
-  "Starts Jetty with Hystrix event stream servlet"
-  [options]
-  (let [^Server server (#'jetty/create-server (dissoc options :configurator))
-        ^QueuedThreadPool pool (QueuedThreadPool. ^Integer (options :max-threads 50))]
-    (when (:daemon? options false) (.setDaemon pool true))
-    (doto server (.setThreadPool pool))
-    (when-let [configurator (:configurator options)]
-      (configurator server))
-    (let [hystrix-holder (ServletHolder. HystrixMetricsStreamServlet)
-          context (ServletContextHandler. server "/" ServletContextHandler/NO_SESSIONS)
-          dashboard-handler (-> (constantly (r/redirect "/monitor/monitor.html"))
-                                (wrap-resource "hystrix-dashboard")
-                                (wrap-content-type)
-                                (wrap-not-modified))]
-      (.addServlet context hystrix-holder "/hystrix.stream")
-      (.addServlet context (ServletHolder. (servlet/servlet dashboard-handler)) "/"))
-    (.start server)
-    (when (:join? options true) (.join server))
-    server))
-
-; Mock json capability for java.io.InputStream.
-; Needed to serialize non-text requests, e.g. in Pierone
-(extend InputStream json/JSONWriter
-  {:-write (fn [^InputStream is #^PrintWriter out]
-             (.print out (json/write-str (str "Some " (.getName (class is)) ". Content omitted."))))})
-
-(defn add-logs
-  "Adds a list of log entries to the audit logs container."
-  [audit-logs logs]
-  (dosync
-    (alter audit-logs concat logs)))
-
-(defn empty-logs
-  "Returns all current audit logs and resets the container to empty."
-  [audit-logs]
-  (dosync
-    (let [previous-logs @audit-logs]
-      (ref-set audit-logs [])
-      previous-logs)))
-
-(defn is-modifying? [{:keys [request-method]}]
-  (#{:post :put :patch :delete} request-method))
-
-(defn collect-audit-logs
-  "Adds request map to audit-logs container."
-  [next-handler audit-logs enabled?]
-  (if enabled?
-    (do
-      (log/info "Logging all successful, modifying requests.")
-      (fn [request]
-        (let [{:keys [status] :as response} (next-handler request)]
-          (when (and (>= status 200)
-                     (< status 300)
-                     (is-modifying? request))
-            (let [audit-log (-> request
-                                (assoc :logged-on (t/now))
-                                (dissoc :swagger)
-                                (dissoc :configuration)
-                                (dissoc :body)
-                                (dissoc-in [:tokeninfo "access_token"])
-                                (dissoc-in [:headers "authorization"]))]
-              (add-logs audit-logs [audit-log])))
-          response)))
-    (do
-      (log/info "Not logging modifying requests.")
-      next-handler)))
-
-(def default-audit-flush-millis (* 10 1000))
-
-(def audit-logs-file-formatter
-  "yyyy/MM/dd/{app-id}/{app-version}/{instance-id}/modifying-requests-hh-mm-ss.log
-  e.g. 2015/06/15/kio/b2/123456/modifying-requests-08-31-52.log"
-  (let [app-id (or (System/getenv "APPLICATION_ID") "unknown-app")
-        app-version (or (System/getenv "APPLICATION_VERSION") "unknown-version")
-        instance-id (or (System/getenv "INSTANCE_ID") (UUID/randomUUID))
-        format-string (format "yyyy/MM/dd/'%s/%s/%s/modifying-requests'-HH-mm-ss'.log'" app-id app-version instance-id)]
-    (tf/formatter format-string t/utc)))
-
-(defn store-audit-logs!
-  "Stores the audit logs in an S3 bucket."
-  [audit-logs bucket]
-  (let [previous-logs (empty-logs audit-logs)]
-    (when (seq previous-logs)
-      (try
-        (let [file-content (string/join "\n" (map json/write-str previous-logs))
-              file-stream (-> file-content (.getBytes "UTF-8") (ByteArrayInputStream.))
-              content-length (count file-content)
-              file-name (tf/unparse audit-logs-file-formatter (t/now))]
-          (s3/put-object :bucket-name bucket
-                         :key file-name
-                         :input-stream file-stream
-                         :metadata {:content-length content-length}))
-        (catch Throwable t
-          (add-logs audit-logs previous-logs)
-          (log/warn "Could not store audit logs because of %s." (str t)))))))
-
-(defn schedule-audit-log-flusher!
-  [bucket audit-logs {:keys [audit-flush-millis] :or {audit-flush-millis default-audit-flush-millis}}]
-  (when bucket
-    (let [pool (at/mk-pool :cpu-count 1)]
-      (at/every audit-flush-millis #(store-audit-logs! audit-logs bucket) pool :initial-delay audit-flush-millis)
-      pool)))
-
-(defn stop-audit-log-flusher! [bucket audit-logs pool]
-  (when bucket
-    (dosync
-      (at/stop-and-reset-pool! pool :strategy :kill)
-      (store-audit-logs! audit-logs bucket))))
-
 (defn mark-transaction
   "Trigger the TransactionMarker with the swagger operationId for instrumentalisation."
   [next-handler]
@@ -281,7 +158,7 @@
 
 (defn start-component
   "Starts the http component."
-  [component definition resolver-fn]
+  [component metrics audit-logger definition resolver-fn]
   (if (:handler component)
     (do
       (log/debug "Skipping start of HTTP ; already running.")
@@ -290,8 +167,7 @@
     (do
       (log/info "Starting HTTP daemon for API" definition)
       (let [configuration (:configuration component)
-            audit-logs-bucket (:audit-logs-bucket configuration)
-            audit-logs (ref [])
+
             handler (-> (s1st/context :yaml-cp definition)
                         (s1st/ring enrich-log-lines)
                         (s1st/ring s1stapi/add-hsts-header)
@@ -302,6 +178,7 @@
                         (s1st/discoverer)
                         (s1st/ring wrap-params)
                         (s1st/mapper)
+                        (s1st/ring collect-zmon-metrics metrics)
                         (s1st/ring mark-transaction)
                         (s1st/parser)
                         (s1st/ring convert-hystrix-exceptions)
@@ -316,24 +193,15 @@
                                              (s1stsec/allow-all)))})
                         (s1st/ring enrich-log-lines)        ; now we also know the user, replace request info
                         (s1st/ring add-config-to-request configuration)
-                        (s1st/ring collect-audit-logs audit-logs audit-logs-bucket)
+                        (s1st/ring collect-audit-logs audit-logger)
                         (s1st/executor :resolver resolver-fn))]
 
         (if (:no-listen? configuration)
           (merge component {:httpd                nil
-                            :hystrix-httpd        nil
-                            :handler              handler
-                            :audit-log-flush-pool nil
-                            :audit-logs-bucket    audit-logs-bucket
-                            :audit-logs           audit-logs})
+                            :handler              handler})
           (merge component {:httpd                (jetty/run-jetty handler (merge configuration
                                                                                   {:join? false}))
-                            :hystrix-httpd        (run-hystrix-jetty (merge configuration {:join? false
-                                                                                           :port  7979}))
-                            :handler              handler
-                            :audit-log-flush-pool (schedule-audit-log-flusher! audit-logs-bucket audit-logs configuration)
-                            :audit-logs-bucket    audit-logs-bucket
-                            :audit-logs           audit-logs}))))))
+                            :handler              handler}))))))
 
 (defn stop-component
   "Stops the http component."
@@ -346,15 +214,9 @@
     (do
       (log/info "Stopping HTTP daemon.")
       (when-not (:no-listen? (:configuration component))
-        (.stop (:httpd component))
-        (.stop (:hystrix-httpd component))
-        (stop-audit-log-flusher! (:audit-logs-bucket component) (:audit-logs component) (:audit-log-flush-pool component)))
+        (.stop (:httpd component)))
       (merge component {:httpd                nil
-                        :hystrix-httpd        nil
-                        :handler              nil
-                        :audit-logs-bucket    nil
-                        :audit-logs           nil
-                        :audit-log-flush-pool nil}))))
+                        :handler              nil}))))
 
 (defmacro def-http-component
   "Creates an http component with your name and all your given dependencies. Those dependencies will also be available
@@ -371,7 +233,7 @@
   [name definition dependencies]
   ; 'configuration' has to be given on initialization
   ; 'httpd' is the internal http server state
-  `(defrecord ~name [~(symbol "configuration") ~(symbol "httpd") ~@dependencies]
+  `(defrecord ~name [~(symbol "configuration") ~(symbol "httpd") ~(symbol "metrics") ~(symbol "audit-logger") ~@dependencies]
      Lifecycle
 
      (start [this#]
@@ -379,7 +241,7 @@
                             (if-let [cljfn# (s1stexec/operationId-to-function request-definition#)]
                               (fn [request#]
                                 (cljfn# (flatten-parameters request#) request# ~@dependencies))))]
-         (start-component this# ~definition resolver-fn#)))
+         (start-component this# metrics audit-logger ~definition resolver-fn#)))
 
      (stop [this#]
        (stop-component this#))))
