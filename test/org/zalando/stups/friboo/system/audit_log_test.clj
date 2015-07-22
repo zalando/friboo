@@ -3,7 +3,8 @@
             [org.zalando.stups.friboo.system.audit-log :refer :all]
             [amazonica.aws.s3 :as s3]
             [clj-time.format :as tf]
-            [overtone.at-at :as at]))
+            [overtone.at-at :as at])
+  (:import (java.io ByteArrayInputStream)))
 
 (deftest test-add-logs-to-empty-list
   (let [logs (ref [])
@@ -144,7 +145,9 @@
 
 (deftest test-store-audit-logs
   (let [calls (atom [])
-        audit-logs (ref [{:foo "bar"} {:foo "baz"}])]
+        audit-logs (ref [{:foo "bar"}
+                         {:foo "baz"}
+                         {:hello (ByteArrayInputStream. (.getBytes "this should not be visible"))}])]
     (with-redefs [s3/put-object (track calls :s3-put)
                   audit-logs-file-formatter (tf/formatter "'test-file'")]
       (store-audit-logs! audit-logs "test-bucket")
@@ -153,10 +156,10 @@
       (let [args (apply hash-map (:args (first @calls)))]
         (is (= (:key args) "test-file"))
         (is (= (:bucket-name args) "test-bucket"))
-        (is (= (get-in args [:metadata :content-length]) 27))
+        (is (= (get-in args [:metadata :content-length]) 91))
         (is (= (with-open [rdr (clojure.java.io/reader (:input-stream args))]
                  (reduce conj [] (line-seq rdr)))
-               ["{\"foo\":\"bar\"}", "{\"foo\":\"baz\"}"]))
+               ["{\"foo\":\"bar\"}", "{\"foo\":\"baz\"}", "{\"hello\":\"Some java.io.ByteArrayInputStream. Content omitted.\"}"]))
         (is (empty? @audit-logs))))))
 
 (deftest test-store-empty-audit-logs
