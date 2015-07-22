@@ -15,7 +15,8 @@
   (:require [com.stuartsierra.component :refer [Lifecycle]]
             [org.zalando.stups.friboo.log :as log]
             [metrics.core :as metrics]
-            [metrics.timers :as tmr])
+            [metrics.timers :as tmr]
+            [clojure.string :as string])
   (:import (java.util.concurrent TimeUnit)
            (com.codahale.metrics.servlets MetricsServlet$ContextListener MetricsServlet)
            (org.eclipse.jetty.servlet ServletHolder)))
@@ -28,7 +29,7 @@
 
 (defn- path2str
   [coll]
-  (clojure.string/join "." (map segment2str coll)))
+  (string/join "." (map segment2str coll)))
 
 (defn request2string
   "GET /apps/{application_id} -> 200.GET.apps.{application_id}"
@@ -66,7 +67,7 @@
                                  (getRateUnit [] TimeUnit/MILLISECONDS)
                                  (getDurationUnit [] TimeUnit/MILLISECONDS)
                                  (getAllowedOrigin [] "*")))
-    (.addServlet context (ServletHolder. MetricsServlet)))
+    (.addServlet context (ServletHolder. MetricsServlet) "/metrics"))
   context)
 
 (defrecord Metrics []
@@ -81,7 +82,7 @@
       ; else
       (let [registry (metrics/new-registry)]
         (log/info "Created a new metrics registry.")
-        (merge component {:metrics-registry registry}))))
+        (assoc component :metrics-registry registry))))
 
 
   (stop [component]
@@ -89,7 +90,7 @@
       ; then
       (do
         (log/info "Shutting down the metrics registry.")
-        (dissoc :metrics-registry component))
+        (dissoc component :metrics-registry))
       ; else
       (do
         (log/info "Metrics registry not running.")

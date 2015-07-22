@@ -1,6 +1,7 @@
 (ns org.zalando.stups.friboo.system.audit-log-test
   (:require [clojure.test :refer :all]
             [org.zalando.stups.friboo.system.audit-log :refer :all]
+            [org.zalando.stups.friboo.test-utils :refer [track]]
             [amazonica.aws.s3 :as s3]
             [clj-time.format :as tf]
             [overtone.at-at :as at])
@@ -135,13 +136,6 @@
         handler-fn (collect-audit-logs next-handler {:audit-logs nil})]
     (is (= dummy-response (handler-fn dummy-request)))
     (is (empty? @logs))))
-
-(defn track
-  "Adds a tuple on call for an action."
-  ([a action]
-   (fn [& all-args]
-     (swap! a conj {:key  action
-                    :args (into [] all-args)}))))
 
 (deftest test-store-audit-logs
   (let [calls (atom [])
