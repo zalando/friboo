@@ -31,23 +31,23 @@
       (wrap-content-type)
       (wrap-not-modified)))
 
-(defn add-hystrix-servlet
+(defn- add-hystrix-servlet
   [context]
   (.addServlet context (ServletHolder. HystrixMetricsStreamServlet) "/hystrix.stream")
   (.addServlet context (ServletHolder. (servlet/servlet hystrix-dashboard-handler)) "/")
   context)
 
+(defn- mgmt-jetty-configurator
+  [metrics]
+  (fn [server] (-> (ServletContextHandler. server "/" ServletContextHandler/NO_SESSIONS)
+                   (add-hystrix-servlet)
+                   (add-metrics-servlet metrics))))
+
 (defn run-mgmt-jetty
   "Starts Jetty with Hystrix event stream servlet"
   [metrics options]
-  (let [^Server server (#'jetty/create-server (dissoc options :configurator))]
-    (when-let [configurator (:configurator options)]
-      (configurator server))
-    (-> (ServletContextHandler. server "/" ServletContextHandler/NO_SESSIONS)
-        (add-hystrix-servlet)
-        (add-metrics-servlet metrics))
-    (.start server)
-    server))
+  (jetty/run-jetty (constantly nil) (assoc options :configurator (mgmt-jetty-configurator metrics))))
+
 
 (defn running? [component]
   (:mgmt-httpd component))

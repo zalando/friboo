@@ -1,9 +1,12 @@
 (ns org.zalando.stups.friboo.system.mgmt-http-test
   (:require [clojure.test :refer :all]
             [org.zalando.stups.friboo.system.mgmt-http :refer :all]
+            [org.zalando.stups.friboo.system.metrics :refer [add-metrics-servlet]]
             [org.zalando.stups.friboo.test-utils :refer [track]]
-            [org.zalando.stups.friboo.log :as log])
-  (:import (org.eclipse.jetty.util.component LifeCycle)))
+            [org.zalando.stups.friboo.log :as log]
+            [ring.adapter.jetty :as jetty])
+  (:import (org.eclipse.jetty.util.component LifeCycle)
+           (org.eclipse.jetty.server HandlerContainer)))
 
 (deftest test-no-listen-start-component
   (let [component (.start (map->MgmtHTTP {:configuration {:no-listen? true}}))]
@@ -49,3 +52,17 @@
       (is (= 1 (count (filter #(= :stop-jetty (:key %)) @calls))))
       (is (not (running? @component)))
       (swap! calls empty))))
+
+(deftest test-run-mgmt-jetty
+  (let [calls (atom [])
+        metrics {:name "a metrics component"}
+        options {:port 1234}]
+    (with-redefs [jetty/run-jetty (track calls :run-jetty)]
+      (run-mgmt-jetty metrics options)
+      (is (= (count @calls) 1))
+      (let [configurator (:configurator (second (:args (first @calls))))
+            mock-server (proxy [HandlerContainer] [])]
+        (with-redefs [add-metrics-servlet (fn [context-arg metrics-arg] ((track calls :add-metrics-servlet) metrics-arg) context-arg)]
+          (swap! calls empty)
+          (configurator mock-server)
+          (is (= (first (:args (first @calls))) metrics)))))))
