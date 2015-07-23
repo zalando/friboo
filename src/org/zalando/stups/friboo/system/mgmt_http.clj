@@ -49,11 +49,14 @@
     (.start server)
     server))
 
+(defn running? [component]
+  (:mgmt-httpd component))
+
 (defrecord MgmtHTTP [configuration metrics]
   Lifecycle
 
   (start [component]
-    (if (:mgmt-httpd component)
+    (if (running? component)
       ; then
       (do
         (log/info "Management HTTP server already running.")
@@ -65,16 +68,16 @@
           component)
         (let [server (run-mgmt-jetty metrics (merge configuration {:join? false
                                                                    :port  7979}))]
-          (log/info "Created a new management HTTP server.")
+          (log/info "Created a new management HTTP server")
           (assoc component :mgmt-httpd server)))))
 
   (stop [component]
-    (if (:mgmt-httpd component)
+    (if (running? component)
       ; then
       (do
         (.stop (:mgmt-httpd component))
         (log/info "Shut down the management HTTP server.")
-        (dissoc :mgmt-httpd component))
+        (dissoc component :mgmt-httpd))
       ; else
       (do
         (log/info "Management HTTP server not running.")
