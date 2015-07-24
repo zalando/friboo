@@ -132,7 +132,7 @@
                             :thread-pool thread-pool
                             :bucket      bucket}))
         (do
-          (log/info "Skip creation of audit logger. AUDIT_LOGS_BUCKET not set.")
+          (log/info "Skip creation of audit logger. AUDIT_LOG_BUCKET not set.")
           component))))
 
   (stop [component]

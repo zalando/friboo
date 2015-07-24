@@ -14,7 +14,11 @@
 
 (ns org.zalando.stups.friboo.system
   (:require [com.stuartsierra.component :as component]
-            [org.zalando.stups.friboo.log :as log])
+            [org.zalando.stups.friboo.log :as log]
+            [org.zalando.stups.friboo.system.metrics :refer [map->Metrics]]
+            [org.zalando.stups.friboo.system.audit-log :refer [map->AuditLog]]
+            [org.zalando.stups.friboo.system.mgmt-http :refer [map->MgmtHTTP]]
+            )
   (:import (org.apache.logging.log4j LogManager Level)
            (org.apache.logging.log4j.core LoggerContext)
            (org.apache.logging.log4j.core.config Configuration LoggerConfig)))
@@ -31,6 +35,17 @@
     (.updateLoggers ctx config)))
 
 (def stups-logger-name "org.zalando.stups")
+
+(defn http-system-map
+  ""
+  [configuration api-component-constructor api-dependencies & other-components]
+  (apply component/system-map
+         (concat [:api (component/using (api-component-constructor {:configuration (:http configuration)})
+                                        (conj api-dependencies :metrics :audit-log))
+                  :metrics (map->Metrics {})
+                  :audit-log (map->AuditLog {:configuration (:audit-log configuration)})
+                  :mgmt-http (component/using (map->MgmtHTTP {:configuration (:http configuration)}) [:metrics])]
+                 other-components)))
 
 (defn run
   "Boots a whole new system."

@@ -233,7 +233,7 @@
   [name definition dependencies]
   ; 'configuration' has to be given on initialization
   ; 'httpd' is the internal http server state
-  `(defrecord ~name [~(symbol "configuration") ~(symbol "httpd") ~(symbol "metrics") ~(symbol "audit-logger") ~@dependencies]
+  `(defrecord ~name [~(symbol "configuration") ~(symbol "httpd") ~(symbol "metrics") ~(symbol "audit-log") ~@dependencies]
      Lifecycle
 
      (start [this#]
@@ -241,7 +241,7 @@
                             (if-let [cljfn# (s1stexec/operationId-to-function request-definition#)]
                               (fn [request#]
                                 (cljfn# (flatten-parameters request#) request# ~@dependencies))))]
-         (start-component this# metrics audit-logger ~definition resolver-fn#)))
+         (start-component this# ~(symbol "metrics") ~(symbol "audit-log") ~definition resolver-fn#)))
 
      (stop [this#]
        (stop-component this#))))
