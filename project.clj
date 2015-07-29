@@ -14,7 +14,7 @@
 
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.zalando/swagger1st "0.15.0"]
-                 [org.zalando.stups/txdemarcator "0.6.0"]
+                 [org.zalando.stups/txdemarcator "0.7.0"]
                  [com.stuartsierra/component "0.2.3"]
                  [ring "1.3.2"]
                  [org.eclipse.jetty/jetty-servlet "7.6.13.v20130916"]
