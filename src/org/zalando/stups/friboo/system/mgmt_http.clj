@@ -14,7 +14,7 @@
 (ns org.zalando.stups.friboo.system.mgmt-http
   (:require [com.stuartsierra.component :refer [Lifecycle]]
             [org.zalando.stups.friboo.log :as log]
-            [org.zalando.stups.friboo.system.metrics :refer [add-metrics-servlet]]
+            [org.zalando.stups.friboo.system.metrics :refer [add-metrics-servlet add-metrics-filter]]
             [ring.util.response :as r]
             [ring.adapter.jetty :as jetty]
             [ring.util.servlet :as servlet]
@@ -22,7 +22,6 @@
             [ring.middleware.content-type :refer [wrap-content-type]]
             [ring.middleware.not-modified :refer [wrap-not-modified]])
   (:import (org.eclipse.jetty.servlet ServletHolder ServletContextHandler)
-           (org.eclipse.jetty.server Server)
            (com.netflix.hystrix.contrib.metrics.eventstream HystrixMetricsStreamServlet)))
 
 (def hystrix-dashboard-handler
@@ -41,7 +40,8 @@
   [metrics]
   (fn [server] (-> (ServletContextHandler. server "/" ServletContextHandler/NO_SESSIONS)
                    (add-hystrix-servlet)
-                   (add-metrics-servlet metrics))))
+                   (add-metrics-servlet metrics)
+                   (add-metrics-filter metrics))))
 
 (defn run-mgmt-jetty
   "Starts Jetty with Hystrix event stream servlet"

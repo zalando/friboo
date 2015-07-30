@@ -12,15 +12,15 @@
 
 (deftest test-request2string
   (are [request status expected-string]
-    (= (request2string request status) expected-string)
+    (= (swagger1st-request2string request status) expected-string)
     (mock-request :get ["apps" :app_id "credentials"]) 200 "200.GET.apps.{app_id}.credentials"
     (mock-request :post ["apps"]) 400 "400.POST.apps"))
 
 (deftest test-collect-zmon-metrics
   (let [component (.start (map->Metrics {}))
         next-handler (constantly {:status 404 :body "not found"})
-        handler (collect-zmon-metrics next-handler component)]
-    (with-redefs [request2string (constantly "mock")]
+        handler (collect-swagger1st-zmon-metrics next-handler component)]
+    (with-redefs [swagger1st-request2string (constantly "mock")]
       (handler "a request"))
     (let [timer (-> component :metrics-registry .getTimers (get "zmon.response.mock"))]
       (is (not (nil? timer))))))
@@ -28,7 +28,7 @@
 (deftest test-collect-zmon-metrics-component-not-running
   (let [component (map->Metrics {})
         next-handler (constantly {:status 404 :body "not found"})
-        handler (collect-zmon-metrics next-handler component)]
+        handler (collect-swagger1st-zmon-metrics next-handler component)]
     (is (= handler next-handler))))
 
 (deftest test-add-metrics-servlet

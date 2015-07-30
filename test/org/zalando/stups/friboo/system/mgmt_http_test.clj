@@ -1,7 +1,7 @@
 (ns org.zalando.stups.friboo.system.mgmt-http-test
   (:require [clojure.test :refer :all]
             [org.zalando.stups.friboo.system.mgmt-http :refer :all]
-            [org.zalando.stups.friboo.system.metrics :refer [add-metrics-servlet]]
+            [org.zalando.stups.friboo.system.metrics :refer [add-metrics-servlet add-metrics-filter]]
             [org.zalando.stups.friboo.test-utils :refer [track]]
             [org.zalando.stups.friboo.log :as log]
             [ring.adapter.jetty :as jetty])
@@ -62,7 +62,9 @@
       (is (= (count @calls) 1))
       (let [configurator (:configurator (second (:args (first @calls))))
             mock-server (proxy [HandlerContainer] [])]
-        (with-redefs [add-metrics-servlet (fn [context-arg metrics-arg] ((track calls :add-metrics-servlet) metrics-arg) context-arg)]
+        (with-redefs [add-metrics-servlet (fn [context-arg metrics-arg] ((track calls :add-metrics-servlet) metrics-arg) context-arg)
+                      add-metrics-filter (fn [context-arg metrics-arg] ((track calls :add-metrics-filter) metrics-arg) context-arg)]
           (swap! calls empty)
           (configurator mock-server)
-          (is (= (first (:args (first @calls))) metrics)))))))
+          (is (= (first (:args (first (filter #(= :add-metrics-servlet (:key %)) @calls)))) metrics))
+          (is (= (first (:args (first (filter #(= :add-metrics-filter (:key %)) @calls)))) metrics)))))))

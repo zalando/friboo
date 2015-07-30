@@ -21,7 +21,7 @@
             [org.zalando.stups.friboo.ring :as ring]
             [org.zalando.stups.friboo.log :as log]
             [org.zalando.stups.friboo.config :refer [require-config]]
-            [org.zalando.stups.friboo.system.metrics :refer [collect-zmon-metrics]]
+            [org.zalando.stups.friboo.system.metrics :refer [collect-swagger1st-zmon-metrics]]
             [org.zalando.stups.friboo.system.audit-log :refer [collect-audit-logs]]
             [ring.adapter.jetty :as jetty]
             [ring.util.response :as r]
@@ -178,7 +178,7 @@
                         (s1st/discoverer)
                         (s1st/ring wrap-params)
                         (s1st/mapper)
-                        (s1st/ring collect-zmon-metrics metrics)
+                        (s1st/ring collect-swagger1st-zmon-metrics metrics)
                         (s1st/ring mark-transaction)
                         (s1st/parser)
                         (s1st/ring convert-hystrix-exceptions)

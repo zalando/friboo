@@ -19,7 +19,10 @@
             [clojure.string :as string])
   (:import (java.util.concurrent TimeUnit)
            (com.codahale.metrics.servlets MetricsServlet$ContextListener MetricsServlet)
-           (org.eclipse.jetty.servlet ServletHolder)))
+           (org.eclipse.jetty.servlet ServletHolder FilterHolder ServletContextHandler)
+           (java.util EnumSet)
+           (javax.servlet DispatcherType Filter ServletRequest ServletResponse FilterChain FilterConfig)
+           (javax.servlet.http HttpServletResponse HttpServletRequest)))
 
 (defn- segment2str
   [x]
@@ -31,14 +34,24 @@
   [coll]
   (string/join "." (map segment2str coll)))
 
-(defn request2string
+(defn swagger1st-request2string
   "GET /apps/{application_id} -> 200.GET.apps.{application_id}"
   [request status]
   (clojure.string/join "." [status
                             (.toUpperCase (-> request :request-method name))
                             (-> request :swagger :key second path2str)]))
 
-(defn collect-zmon-metrics
+(defn http-servlet-request2string
+  "GET /hystrix.stream -> 200.GET.hystrix.stream"
+  [^HttpServletRequest request status]
+  (clojure.string/join "." [status
+                            (.toUpperCase (.getMethod request))
+                            (let [path (string/replace (subs (.getServletPath request) 1) #"[/]" ".")]
+                              (if (or (string/blank? path) (= path "."))
+                                "*ROOT*"
+                                path))]))
+
+(defn collect-swagger1st-zmon-metrics
   "Ring middleware that creates Timers for Swagger API calls
   and stores them in the running metrics component."
   [next-handler component]
@@ -48,7 +61,7 @@
       (let [start (System/currentTimeMillis)
             response (next-handler request)
             status (:status response)
-            timer (tmr/timer metrics-registry ["zmon" "response" (request2string request status)])]
+            timer (tmr/timer metrics-registry ["zmon" "response" (swagger1st-request2string request status)])]
         (.update timer (- (System/currentTimeMillis) start) (TimeUnit/MILLISECONDS))
         response))
     ; else
@@ -68,6 +81,30 @@
                                  (getDurationUnit [] TimeUnit/MILLISECONDS)
                                  (getAllowedOrigin [] "*")))
     (.addServlet context (ServletHolder. MetricsServlet) "/metrics"))
+  context)
+
+(defn add-metrics-filter
+  [^ServletContextHandler context metrics]
+  (when-let [metrics-registry (:metrics-registry metrics)]
+    (.addFilter context
+                (FilterHolder. (proxy [Filter] []
+                                 (doFilter [^ServletRequest request ^ServletResponse response ^FilterChain chain]
+                                   (if (and (instance? HttpServletResponse response) (instance? HttpServletRequest request))
+                                     (let [start (System/currentTimeMillis)
+                                           status (atom 500)]
+                                       (try
+                                         (.doFilter chain request response)
+                                         (swap! status (fn [_] (.getStatus (cast HttpServletResponse response))))
+
+                                         (finally
+                                           (let [timer (tmr/timer metrics-registry ["zmon" "response" (http-servlet-request2string request @status)])]
+                                             (.update timer (- (System/currentTimeMillis) start) (TimeUnit/MILLISECONDS))))))
+                                     (.doFilter chain request response)))
+
+                                 (init [^FilterConfig _] nil)
+                                 (destroy [] nil)))
+                "/metrics"
+                (EnumSet/of DispatcherType/REQUEST)))
   context)
 
 (defrecord Metrics []
