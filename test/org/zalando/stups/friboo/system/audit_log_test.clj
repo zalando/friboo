@@ -1,17 +1,11 @@
-(ns org.zalando.stups.friboo.http-test
-  (:require
-    [clojure.test :refer :all]
-    [org.zalando.stups.friboo.system.http :refer :all]
-    [amazonica.aws.s3 :as s3]
-    [clj-time.format :as tf]
-    [overtone.at-at :as at]))
-
-(deftest test-map-authorization-header-simple
-  (is (= "xyz" (map-authorization-header "xyz")))
-  (is (= "Bearer 123" (map-authorization-header "Token 123"))))
-
-(deftest test-map-authorization-header-basic-auth
-  (is (= "Bearer 123" (map-authorization-header "Basic b2F1dGgyOjEyMw=="))))
+(ns org.zalando.stups.friboo.system.audit-log-test
+  (:require [clojure.test :refer :all]
+            [org.zalando.stups.friboo.system.audit-log :refer :all]
+            [org.zalando.stups.friboo.test-utils :refer [track]]
+            [amazonica.aws.s3 :as s3]
+            [clj-time.format :as tf]
+            [overtone.at-at :as at])
+  (:import (java.io ByteArrayInputStream)))
 
 (deftest test-add-logs-to-empty-list
   (let [logs (ref [])
@@ -66,8 +60,7 @@
                        :request-method :post}
         next-handler (constantly dummy-response)
         logs (ref [])
-        enabled? true
-        handler-fn (collect-audit-logs next-handler logs enabled?)]
+        handler-fn (collect-audit-logs next-handler {:audit-logs logs})]
     (is (= dummy-response (handler-fn dummy-request)))
     (is (seq @logs))
     (let [line (first @logs)]
@@ -88,8 +81,7 @@
                        :request-method :post}
         next-handler (constantly dummy-response)
         logs (ref [])
-        enabled? true
-        handler-fn (collect-audit-logs next-handler logs enabled?)]
+        handler-fn (collect-audit-logs next-handler {:audit-logs logs})]
     (is (= dummy-response (handler-fn dummy-request)))
     (is (empty? @logs))))
 
@@ -106,8 +98,7 @@
                        :request-method :post}
         next-handler (constantly dummy-response)
         logs (ref [])
-        enabled? true
-        handler-fn (collect-audit-logs next-handler logs enabled?)]
+        handler-fn (collect-audit-logs next-handler {:audit-logs logs})]
     (is (= dummy-response (handler-fn dummy-request)))
     (is (empty? @logs))))
 
@@ -125,8 +116,7 @@
                        :request-method :get}
         next-handler (constantly dummy-response)
         logs (ref [])
-        enabled? true
-        handler-fn (collect-audit-logs next-handler logs enabled?)]
+        handler-fn (collect-audit-logs next-handler {:audit-logs logs})]
     (is (= dummy-response (handler-fn dummy-request)))
     (is (empty? @logs))))
 
@@ -143,21 +133,15 @@
                        :request-method :post}
         next-handler (constantly dummy-response)
         logs (ref [])
-        enabled? false
-        handler-fn (collect-audit-logs next-handler logs enabled?)]
+        handler-fn (collect-audit-logs next-handler {:audit-logs nil})]
     (is (= dummy-response (handler-fn dummy-request)))
     (is (empty? @logs))))
 
-(defn track
-  "Adds a tuple on call for an action."
-  ([a action]
-   (fn [& all-args]
-     (swap! a conj {:key  action
-                    :args (into [] all-args)}))))
-
 (deftest test-store-audit-logs
   (let [calls (atom [])
-        audit-logs (ref [{:foo "bar"} {:foo "baz"}])]
+        audit-logs (ref [{:foo "bar"}
+                         {:foo "baz"}
+                         {:hello (ByteArrayInputStream. (.getBytes "this should not be visible"))}])]
     (with-redefs [s3/put-object (track calls :s3-put)
                   audit-logs-file-formatter (tf/formatter "'test-file'")]
       (store-audit-logs! audit-logs "test-bucket")
@@ -166,10 +150,10 @@
       (let [args (apply hash-map (:args (first @calls)))]
         (is (= (:key args) "test-file"))
         (is (= (:bucket-name args) "test-bucket"))
-        (is (= (get-in args [:metadata :content-length]) 27))
+        (is (= (get-in args [:metadata :content-length]) 91))
         (is (= (with-open [rdr (clojure.java.io/reader (:input-stream args))]
                  (reduce conj [] (line-seq rdr)))
-               ["{\"foo\":\"bar\"}", "{\"foo\":\"baz\"}"]))
+               ["{\"foo\":\"bar\"}", "{\"foo\":\"baz\"}", "{\"hello\":\"Some java.io.ByteArrayInputStream. Content omitted.\"}"]))
         (is (empty? @audit-logs))))))
 
 (deftest test-store-empty-audit-logs
@@ -206,3 +190,39 @@
       (is (= (count @calls) 2))
       (is (some #(= (:key %) :stop) @calls))
       (is (some #(= (:key %) :store-logs) @calls)))))
+
+(deftest test-start-audit-log-missing-bucket
+  (let [calls (atom [])]
+    (with-redefs [schedule-audit-log-flusher! (track calls :scheduler)]
+      (.start (map->AuditLog {:configuration {:bucket nil}}))
+      (is (empty? @calls)))))
+
+(deftest test-component-lifecycle
+  (let [calls (atom [])
+        component (atom (map->AuditLog {:configuration {:bucket "hello-world"}}))]
+    (with-redefs [schedule-audit-log-flusher! (track calls :run-scheduler)
+                  stop-audit-log-flusher! (track calls :stop-scheduler)]
+      ; stop not-running component
+      (swap! component (fn [c] (.stop c)))
+      (is (empty? @calls))
+      (is (not (running? @component)))
+      (swap! calls empty)
+
+      ; start component the first time
+      (swap! component (fn [c] (.start c)))
+      (is (= 1 (count (filter #(= :run-scheduler (:key %)) @calls))))
+      (is (running? @component))
+      (swap! calls empty)
+
+      ; start component twice should not have an effect
+      (swap! component (fn [c] (.start c)))
+      (is (empty? @calls))
+      (is (running? @component))
+      (swap! calls empty)
+
+      ; stop component
+      (swap! component (fn [c] (.stop c)))
+      (is (= 1 (count (filter #(= :stop-scheduler (:key %)) @calls))))
+      (is (not (running? @component)))
+      (swap! calls empty))))
+
