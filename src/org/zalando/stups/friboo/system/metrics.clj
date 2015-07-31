@@ -77,7 +77,6 @@
   (when-let [metrics-registry (:metrics-registry metrics)]
     (.addEventListener context (proxy [MetricsServlet$ContextListener] []
                                  (getMetricRegistry [] metrics-registry)
-                                 (getRateUnit [] TimeUnit/MILLISECONDS)
                                  (getDurationUnit [] TimeUnit/MILLISECONDS)
                                  (getAllowedOrigin [] "*")))
     (.addServlet context (ServletHolder. MetricsServlet) "/metrics"))

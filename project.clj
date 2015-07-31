@@ -37,7 +37,7 @@
                  [com.netflix.hystrix/hystrix-core "1.4.12"]
                  [com.netflix.hystrix/hystrix-metrics-event-stream "1.4.12"]
                  [org.clojure/core.incubator "0.1.3"]
-                 [metrics-clojure "2.5.1"]
+                 [metrics-clojure "2.5.1" :exclusions [io.dropwizard.metrics/metrics-core]]
                  [io.dropwizard.metrics/metrics-servlets "3.1.2"]]
 
   :plugins [[lein-cloverage "1.0.6"]]
