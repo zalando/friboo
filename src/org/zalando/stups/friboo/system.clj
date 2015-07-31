@@ -36,8 +36,40 @@
 
 (def stups-logger-name "org.zalando.stups")
 
+(def default-http-namespaces [:http :mgmt-http :audit-log :metrics])
+
+(defn default-http-namespaces-and [& additional-ones]
+  (apply conj default-http-namespaces additional-ones))
+
 (defn http-system-map
-  ""
+  "Creates a system map for a typical http service, containing of
+     - an API component (usually created with the org.zalando.stups.friboo.system.http/def-http-component)
+     - a metrics component, to gather information about the frequency and duration of HTTP requests
+     - an audit log component, to log successfull PUT, POST, PATCH & DELETE requests to an S3 bucket
+     - a management HTTP server, that contains endpoints like '/metrics' and '/hystrix.stream' and runs on a different port
+
+   Params:
+   configuration - a map containing config entries grouped by namespace, can be obtained using friboo's config/load-configuration
+   api-component-constructor - a function to obtain the api component. It will be called with one parameter: {:configuration (:http configuration)}
+   api-dependencies - a vector containing all additional system dependencies used by the API component
+   other-components - all additional system components as key-value pairs, as one would usually pass to component/system-map
+
+   Example:
+   A function to init and run a system could look like this:
+
+       (defn run
+         [default-configuration]
+         (let [configuration (config/load-configuration
+                                (default-http-namespaces-and :db)
+                                [sql/default-db-configuration
+                                 api/default-http-configuration
+                                 default-configuration])
+               system (system/http-system-map configuration
+                                              api/map->API [:db]
+                                              :db (sql/map->DB {:configuration (:db configuration)}))]
+
+           (system/run configuration system)))
+  "
   [configuration api-component-constructor api-dependencies & other-components]
   (apply component/system-map
          (concat [:api (component/using (api-component-constructor {:configuration (:http configuration)})
