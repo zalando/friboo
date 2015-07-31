@@ -2,6 +2,7 @@
   (:require
     [clojure.test :refer :all]
     [org.zalando.stups.friboo.system.http :refer :all]
+    [ring.middleware.gzip :as gzip]
     [amazonica.aws.s3 :as s3]
     [clj-time.format :as tf]
     [overtone.at-at :as at]))
@@ -206,3 +207,13 @@
       (is (= (count @calls) 2))
       (is (some #(= (:key %) :stop) @calls))
       (is (some #(= (:key %) :store-logs) @calls)))))
+
+(deftest test-gzip-encoding
+  (let [dummy-response {:status 200 :body (pr-str (range 1 500))}
+        dummy-request  {:headers {"accept-encoding" "gzip"}
+                                 :request-method :get}
+        next-handler (constantly dummy-response)
+        zip-me (gzip/wrap-gzip next-handler)
+        result (zip-me dummy-request)]
+    (is (= (get-in result [:headers "Content-Encoding"])
+           "gzip"))))
