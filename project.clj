@@ -18,6 +18,7 @@
                  [com.stuartsierra/component "0.2.3"]
                  [ring "1.4.0"]
                  [org.eclipse.jetty/jetty-servlet "9.2.10.v20150310"]
+                 [amalloy/ring-gzip-middleware "0.1.3"]
                  [environ "1.0.0"]
                  [io.clj/logging "0.8.1"]
                  [org.apache.logging.log4j/log4j-api "2.3"]

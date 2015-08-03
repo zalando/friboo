@@ -29,6 +29,7 @@
             [ring.middleware.resource :refer [wrap-resource]]
             [ring.middleware.content-type :refer [wrap-content-type]]
             [ring.middleware.not-modified :refer [wrap-not-modified]]
+            [ring.middleware.gzip :refer [wrap-gzip]]
             [clojure.data.codec.base64 :as b64]
             [io.clj.logging :refer [with-logging-context]]
             [clj-http.client :as client]
@@ -171,6 +172,7 @@
       (let [configuration (:configuration component)
 
             handler (-> (s1st/context :yaml-cp definition)
+                        (s1st/ring wrap-gzip)
                         (s1st/ring enrich-log-lines)
                         (s1st/ring s1stapi/add-hsts-header)
                         (s1st/ring s1stapi/add-cors-headers)
