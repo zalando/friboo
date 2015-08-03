@@ -66,8 +66,9 @@
         (do
           (log/info "Skip creation of management HTTP server. 'no-listen?' property found")
           component)
-        (let [server (run-mgmt-jetty metrics (merge configuration {:join? false
-                                                                   :port  7979}))]
+        (let [port (:port configuration 7979)
+              server (run-mgmt-jetty metrics (merge configuration {:join? false
+                                                                   :port  port}))]
           (log/info "Created a new management HTTP server")
           (assoc component :mgmt-httpd server)))))
 

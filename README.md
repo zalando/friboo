@@ -62,6 +62,28 @@ The first argument of your function will always be a flattened map (parameter na
 categorisation. This does violate the swagger spec which calls parameter names only unique in combination with your
 `in` type. You have to take care during modelling your API.
 
+The HTTP component has some dependencies to other components (audit-log, metrics). It is recommended to use the
+convenience function, to create an http system:
+
+```clojure
+(ns my-app.core
+  (:require [org.zalando.stups.friboo.config :as config]
+            [org.zalando.stups.friboo.system :as system])
+
+(defn run
+  [default-configuration]
+  (let [configuration (config/load-configuration
+                         (system/default-http-namespaces-and :db)
+                         [my-app.sql/default-db-configuration
+                          my-app.api/default-http-configuration
+                          default-configuration])
+        system (system/http-system-map configuration
+                  my-app.api/map->API [:db]
+                  :db (my-app.sql/map->DB {:configuration (:db configuration)}))]
+
+    (system/run configuration system)))
+```
+
 #### Configuration options
 
 The component has to be initialized with its configuration in the `:configuration` key.
@@ -71,14 +93,6 @@ The component has to be initialized with its configuration in the `:configuratio
 
 * `:cors-origin` may be set to a domain mask for CORS access (e.g. `*.zalando.de`).
 * All configurations that Jetty supports.
-* All modifying requests (POST, PUT, PATCH, DELETE) will be logged to the `:audit-logs-bucket`, if the property is set.
-    * the value should address the name of an S3 bucket
-    * the application must have write access to this bucket
-    * the frequency, with which the log files are written, can be adjusted with `:audit-flush-millis` (defaults to 10s)
-        * of course, no empty files will be written
-    * to build a meaningful file name pattern, the environment variables `APPLICATION_ID`, `APPLICATION_VERSION`
-      and `INSTANCE_ID` are used
-        * `INSTANCE_ID` defaults to random UUID
 
 ### DB component
 
@@ -100,6 +114,40 @@ The component has to be initialized with its configuration in the `:configuratio
                                 :subname     "localhost/mydb"}})
 
 TODO link to jdbc documentation, pool specific configuration like min- and max-pool-size
+
+### Audit log component
+
+The aim of the audit log component is to collect logs of all modifying http requests (POST, PUT, PATCH, DELETE) and 
+store them in an S3 bucket. These information can then be used to create an audit trail.
+
+#### Configuration options
+
+* Set `:audit-log-bucket` to enable this component
+    * the value should address the name of an S3 bucket
+    * the application must have write access to this bucket
+    * the frequency, with which the log files are written, can be adjusted with `:audit-log-flush-millis` (defaults to 10s)
+        * of course, no empty files will be written
+    * to build a meaningful file name pattern, the environment variables `APPLICATION_ID`, `APPLICATION_VERSION`
+      and `INSTANCE_ID` are used
+        * `INSTANCE_ID` defaults to random UUID
+
+### Metrics component
+
+The metrics component initializes a [Dropwizard MetricsRegistry](http://metrics.dropwizard.io) to measure
+frequency and performance of the Swagger API endpoints (see HTTP component)
+
+### Management HTTP component
+
+This component starts another embedded Jetty at a different port (default 7979) and exposes endpoints used to monitor and manage the
+application:
+
+* `/metrics` - A JSON document containing all metrics, gathered by the metrics component
+* `/hystrix.stream` - The Hystrix stream (can be aggregated by Turbine)
+* `/monitor/monitor.html` - The Hystrix dashboard
+
+#### Configuration options
+
+All Jetty configuration options, prefixed with `:mgmt-http-` or `MGMT_HTTP_`. 
 
 ## Real-world usage
 

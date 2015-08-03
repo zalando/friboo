@@ -46,7 +46,7 @@
       (let [listener (-> add-listener-calls first :args first)]
         (is (not (nil? listener)))
         (is (= (.getMetricRegistry listener) (:metrics-registry component)))
-        (is (= (.getRateUnit listener) TimeUnit/MILLISECONDS))
+        (is (nil? (.getRateUnit listener)))
         (is (= (.getDurationUnit listener) TimeUnit/MILLISECONDS))
         (is (= (.getAllowedOrigin listener) "*")))
       (is (= 1 (count add-servlet-calls))))))
