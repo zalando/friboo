@@ -17,6 +17,7 @@
                  [org.zalando.stups/txdemarcator "0.7.0"]
                  [com.stuartsierra/component "0.2.3"]
                  [ring "1.3.2"]
+                 [amalloy/ring-gzip-middleware "0.1.3"]
                  [org.eclipse.jetty/jetty-servlet "7.6.13.v20130916"]
                  [environ "1.0.0"]
                  [io.clj/logging "0.8.1"]

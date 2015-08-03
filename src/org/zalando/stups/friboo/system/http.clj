@@ -18,6 +18,7 @@
             [io.sarnowski.swagger1st.util.api :as s1stapi]
             [io.sarnowski.swagger1st.util.security :as s1stsec]
             [ring.middleware.params :refer [wrap-params]]
+            [ring.middleware.gzip :refer [wrap-gzip]]
             [ring.adapter.jetty :as jetty]
             [ring.util.servlet :as servlet]
             [com.stuartsierra.component :refer [Lifecycle]]
@@ -318,7 +319,8 @@
                         (s1st/ring enrich-log-lines)        ; now we also know the user, replace request info
                         (s1st/ring add-config-to-request configuration)
                         (s1st/ring collect-audit-logs audit-logs audit-logs-bucket)
-                        (s1st/executor :resolver resolver-fn))]
+                        (s1st/executor :resolver resolver-fn)
+                        (wrap-gzip))]
 
         (if (:no-listen? configuration)
           (merge component {:httpd                nil
