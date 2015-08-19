@@ -1,4 +1,4 @@
-(defproject org.zalando.stups/friboo "0.33.0-SNAPSHOT"
+(defproject org.zalando.stups/friboo "1.0.0-SNAPSHOT"
   :description "A utility library to write microservices in clojure."
   :url "https://github.com/zalando-stups/friboo"
 
@@ -12,13 +12,13 @@
 
   :java-source-paths ["java"]
 
-  :dependencies [[org.clojure/clojure "1.6.0"]
+  :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.zalando/swagger1st "0.15.0"]
                  [org.zalando.stups/txdemarcator "0.7.0"]
                  [com.stuartsierra/component "0.2.3"]
-                 [ring "1.3.2"]
+                 [ring "1.4.0"]
+                 [org.eclipse.jetty/jetty-servlet "9.2.10.v20150310"]
                  [amalloy/ring-gzip-middleware "0.1.3"]
-                 [org.eclipse.jetty/jetty-servlet "7.6.13.v20130916"]
                  [environ "1.0.0"]
                  [io.clj/logging "0.8.1"]
                  [org.apache.logging.log4j/log4j-api "2.3"]
@@ -30,16 +30,23 @@
                  [com.jolbox/bonecp "0.8.0.RELEASE"]
                  [org.flywaydb/flyway-core "3.2.1"]
                  [org.postgresql/postgresql "9.4-1201-jdbc41"]
-                 [amazonica "0.3.24" :exclusions [org.apache.httpcomponents/httpclient joda-time]]
+                 [amazonica "0.3.30" :exclusions [org.apache.httpcomponents/httpclient joda-time]]
                  [org.clojure/data.codec "0.1.0"]
                  [overtone/at-at "1.2.0"]
-                 [org.zalando.stups/tokens "0.7.0"]
-                 [com.netflix.hystrix/hystrix-clj "1.4.11"]
-                 [com.netflix.hystrix/hystrix-core "1.4.11"]
-                 [com.netflix.hystrix/hystrix-metrics-event-stream "1.4.11"]
-                 [org.clojure/core.incubator "0.1.3"]]
+                 [org.zalando.stups/tokens "0.9.0"]
+                 [com.netflix.hystrix/hystrix-clj "1.4.13"]
+                 [com.netflix.hystrix/hystrix-core "1.4.13"]
+                 [com.netflix.hystrix/hystrix-metrics-event-stream "1.4.13"]
+                 [org.clojure/core.incubator "0.1.3"]
+                 [metrics-clojure "2.5.1" :exclusions [io.dropwizard.metrics/metrics-core]]
+                 [io.dropwizard.metrics/metrics-servlets "3.1.2"]
+                 [org.slf4j/slf4j-api "1.7.12"]
+                 [com.fasterxml.jackson.core/jackson-core "2.5.4"]
+                 [com.fasterxml.jackson.core/jackson-databind "2.5.4"]
+                 [org.apache.httpcomponents/httpclient "4.5"]
+                 [commons-codec "1.10"]]
 
-  :plugins [[lein-cloverage "1.0.3"]]
+  :plugins [[lein-cloverage "1.0.6"]]
 
   :pom-addition [:developers
                  [:developer {:id "sarnowski"}

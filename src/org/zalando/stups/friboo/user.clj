@@ -29,7 +29,7 @@
          (log/warn "ACCESS DENIED (unauthorized) because user is not any team.")
          (api/throw-error 403 "user has no teams"
                           {:user user-id}))
-       (into #{} (map :id teams))))))
+       (set (map :id teams))))))
 
 (defn require-team
   "Throws an exception if user is not in the given team, else returns nil."
