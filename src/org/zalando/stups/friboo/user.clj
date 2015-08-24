@@ -9,8 +9,9 @@
 (defcommand
   get-teams
   [team-service-url access-token user-id]
-  (:body (http/get (r/conpath team-service-url "/user/" user-id)
-                   {:oauth-token access-token
+  (:body (http/get (r/conpath team-service-url "/api/accounts/aws")
+                   {:query-params {:member user-id}
+                    :oauth-token access-token
                     :as          :json})))
 
 (defn require-teams
@@ -29,7 +30,7 @@
          (log/warn "ACCESS DENIED (unauthorized) because user is not any team.")
          (api/throw-error 403 "user has no teams"
                           {:user user-id}))
-       (set (map :id teams))))))
+       (set (map :name teams))))))
 
 (defn require-team
   "Throws an exception if user is not in the given team, else returns nil."
