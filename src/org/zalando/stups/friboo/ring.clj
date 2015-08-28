@@ -13,7 +13,8 @@
 ; limitations under the License.
 
 (ns org.zalando.stups.friboo.ring
-  (:require [ring.util.response :refer :all]))
+  (:require [ring.util.response :refer :all]
+            [clojure.string :as s]))
 
 ;; some convinience helpers
 
