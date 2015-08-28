@@ -39,8 +39,8 @@
   "Concatenates path elements to an URL."
   [url & path]
   (let [[x & xs] path]
-    (if x
-      (let [first-with-slash (.endsWith url "/")
+    (let [x (str x)
+          first-with-slash (.endsWith url "/")
             last-with-slash  (.startsWith x "/")
             url (if (xor first-with-slash
                          last-with-slash)
@@ -52,5 +52,6 @@
                     (str url (s/replace-first x #"/" ""))
                     ; if none have a /, add one
                     (str url "/" x)))]
-        (recur url xs))
-      url)))
+      (if xs
+        (recur url xs)
+        url))))
