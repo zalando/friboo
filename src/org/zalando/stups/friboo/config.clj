@@ -19,11 +19,18 @@
             [amazonica.aws.kms :as kms]
             [clojure.data.codec.base64 :as b64]))
 
+(defn- nil-or-empty?
+  "If x is a string, returns true if nil or empty. Else returns true if x is nil"
+  [x]
+  (if (string? x)
+      (empty? x)
+      (nil? x)))
+
 (defn require-config
   "Helper function to fail of a configuration value is missing."
   [configuration key]
   (let [value (get configuration key)]
-    (if (empty? value)
+    (if (nil-or-empty? value)
       (throw (IllegalArgumentException. (str "Configuration " key " is required but is missing.")))
       value)))
 
