@@ -22,9 +22,9 @@
            (org.flywaydb.core Flyway)
            (java.sql Timestamp)
            (java.io PrintWriter)
-           (java.text SimpleDateFormat)
            (org.postgresql.util PSQLException)
-           (com.netflix.hystrix.exception HystrixBadRequestException)))
+           (com.netflix.hystrix.exception HystrixBadRequestException)
+           (com.fasterxml.jackson.databind.util ISO8601Utils)))
 
 (defn start-component [component auto-migration?]
   (if (:datasource component)
@@ -87,15 +87,11 @@
      (stop [this#]
        (stop-component this#))))
 
-(def iso-format "yyyy-MM-dd'T'HH:mm:ss.SSSZ")
-
 ; provide json serialization
 (defn- serialize-sql-timestamp
   "Serializes a sql timestamp to json."
   [^Timestamp timestamp #^PrintWriter out]
-  (.print out (-> (SimpleDateFormat. iso-format)
-                  (.format timestamp)
-                  (json/write-str))))
+  (.print out (json/write-str (ISO8601Utils/format timestamp true))))
 
 ; add json capability to java.sql.Timestamp
 (extend Timestamp json/JSONWriter
