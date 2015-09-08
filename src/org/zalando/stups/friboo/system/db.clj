@@ -91,8 +91,7 @@
 (defn- serialize-sql-timestamp
   "Serializes a sql timestamp to json."
   [^Timestamp timestamp #^PrintWriter out]
-  (.print out (-> (ISO8601Utils/format timestamp true)
-                  (json/write-str))))
+  (.print out (json/write-str (ISO8601Utils/format timestamp true))))
 
 ; add json capability to java.sql.Timestamp
 (extend Timestamp json/JSONWriter
