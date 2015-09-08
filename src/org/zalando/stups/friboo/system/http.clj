@@ -25,7 +25,6 @@
             [org.zalando.stups.friboo.system.audit-log :refer [collect-audit-logs]]
             [ring.adapter.jetty :as jetty]
             [ring.util.response :as r]
-            [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.resource :refer [wrap-resource]]
             [ring.middleware.content-type :refer [wrap-content-type]]
             [ring.middleware.not-modified :refer [wrap-not-modified]]
@@ -180,7 +179,6 @@
                         (s1st/ring health-endpoint)
                         (s1st/ring map-alternate-auth-header)
                         (s1st/discoverer)
-                        (s1st/ring wrap-params)
                         (s1st/mapper)
                         (s1st/ring collect-swagger1st-zmon-metrics metrics)
                         (s1st/ring mark-transaction)
