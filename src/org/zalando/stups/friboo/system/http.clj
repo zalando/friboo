@@ -158,6 +158,10 @@
           tx-parent-id (get-in request [:headers Transactions/APPDYNAMICS_HTTP_HEADER])]
       (Transactions/runInTransaction operation-id tx-parent-id #(next-handler request)))))
 
+(defn redirect-to-swagger-ui
+  [& _]
+  (ring.util.response/redirect "/ui/"))
+
 (defn start-component
   "Starts the http component."
   [component metrics audit-logger definition resolver-fn]
