@@ -44,6 +44,7 @@
                  [com.fasterxml.jackson.core/jackson-core "2.6.2"]
                  [com.fasterxml.jackson.core/jackson-databind "2.6.2"]
                  [org.apache.httpcomponents/httpclient "4.5"]
+                 [org.clojure/core.memoize "0.5.6"]
                  [commons-codec "1.10"]]
 
   :plugins [[lein-cloverage "1.0.6"]]
