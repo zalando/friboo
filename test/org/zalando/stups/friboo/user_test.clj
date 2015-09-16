@@ -44,4 +44,7 @@
       (is (= (:args (first @calls))
              ["https://teams.example.org/api/accounts/aws" {:query-params {:member "a-user"}
                                                             :oauth-token "TOKEN12345"
-                                                            :as :json}])))))
+                                                            :as :json}]))
+      (is (= (get-teams "https://teams.example.org" "TOKEN12345" "a-user") [{:name "team1"} {:name "team2"}]))
+      ; we should have a cache hit, i.e. no HTTP call this time..
+      (is (= (count @calls) 1)))))

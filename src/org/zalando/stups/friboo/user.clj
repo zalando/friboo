@@ -6,6 +6,7 @@
             [org.zalando.stups.friboo.log :as log]
             [org.zalando.stups.friboo.log :as log]
             [clojure.core.memoize :as memo]
+            [clojure.core.cache :as cache]
             [com.netflix.hystrix.core :refer [defcommand]]))
 
 (defcommand
@@ -16,7 +17,10 @@
                     :oauth-token access-token
                     :as          :json})))
 
-(def get-teams (memo/ttl fetch-teams :ttl/threshold 300000))
+
+(def get-teams
+  "Cache team information for 5 minutes"
+  (memo/fifo fetch-teams (cache/ttl-cache-factory {} :ttl/threshold 300000) :fifo/threshold 100))
 
 (defn require-teams
   "Returns a set of teams, a user is part of or throws an exception if user is in no team."
