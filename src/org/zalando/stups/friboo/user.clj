@@ -20,7 +20,7 @@
 
 (def get-teams
   "Cache team information for 5 minutes"
-  (memo/fifo fetch-teams (cache/ttl-cache-factory {} :ttl/threshold 300000) :fifo/threshold 100))
+  (memo/fifo fetch-teams (cache/ttl-cache-factory {} :ttl 300000) :fifo/threshold 100))
 
 (defn require-teams
   "Returns a set of teams, a user is part of or throws an exception if user is in no team."
