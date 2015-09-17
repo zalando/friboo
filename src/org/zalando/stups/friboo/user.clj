@@ -4,15 +4,23 @@
             [io.sarnowski.swagger1st.util.api :as api]
             [org.zalando.stups.friboo.config :refer [require-config]]
             [org.zalando.stups.friboo.log :as log]
+            [org.zalando.stups.friboo.log :as log]
+            [clojure.core.memoize :as memo]
+            [clojure.core.cache :as cache]
             [com.netflix.hystrix.core :refer [defcommand]]))
 
 (defcommand
-  get-teams
+  fetch-teams
   [team-service-url access-token user-id]
   (:body (http/get (r/conpath team-service-url "/api/accounts/aws")
                    {:query-params {:member user-id}
                     :oauth-token access-token
                     :as          :json})))
+
+
+(def get-teams
+  "Cache team information for 5 minutes"
+  (memo/fifo fetch-teams (cache/ttl-cache-factory {} :ttl 300000) :fifo/threshold 100))
 
 (defn require-teams
   "Returns a set of teams, a user is part of or throws an exception if user is in no team."

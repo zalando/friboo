@@ -33,6 +33,8 @@
             [io.clj.logging :refer [with-logging-context]]
             [clj-http.client :as client]
             [com.netflix.hystrix.core :refer [defcommand]]
+            [clojure.core.memoize :as memo]
+            [clojure.core.cache :as cache]
             [clojure.core.incubator :refer [dissoc-in]])
   (:import (com.netflix.hystrix.exception HystrixRuntimeException)
            (org.zalando.stups.txdemarcator Transactions)))
@@ -132,12 +134,16 @@
       (throw (IllegalStateException. (str "tokeninfo endpoint returned status code: " (:status response))))
       response)))
 
-(defn resolve-access-token
+(defn resolve-access-token-real
   "Checks with a tokeninfo endpoint for the token's validity and returns the session information if valid."
   [tokeninfo-url access-token]
   (let [response (fetch-tokeninfo tokeninfo-url access-token)
         body (:body response)]
     (when (client/success? response) body)))
+
+(def resolve-access-token
+  "Cache token info for 2 minutes"
+  (memo/fifo resolve-access-token-real (cache/ttl-cache-factory {} :ttl 120000) :fifo/threshold 100))
 
 (defn convert-hystrix-exceptions
   [next-handler]

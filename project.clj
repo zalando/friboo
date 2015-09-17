@@ -1,4 +1,4 @@
-(defproject org.zalando.stups/friboo "1.3.0-SNAPSHOT"
+(defproject org.zalando.stups/friboo "1.4.0-SNAPSHOT"
   :description "A utility library to write microservices in clojure."
   :url "https://github.com/zalando-stups/friboo"
 
@@ -44,6 +44,7 @@
                  [com.fasterxml.jackson.core/jackson-core "2.6.2"]
                  [com.fasterxml.jackson.core/jackson-databind "2.6.2"]
                  [org.apache.httpcomponents/httpclient "4.5"]
+                 [org.clojure/core.memoize "0.5.6"]
                  [commons-codec "1.10"]]
 
   :plugins [[lein-cloverage "1.0.6"]]
