@@ -14,22 +14,22 @@
 (ns org.zalando.stups.friboo.system.audit-log
   (:require [com.stuartsierra.component :refer [Lifecycle]]
             [org.zalando.stups.friboo.log :as log]
-            [clojure.data.json :as json]
+            [cheshire.core :as json]
+            [cheshire.generate :refer [add-encoder]]
             [clojure.core.incubator :refer [dissoc-in]]
             [clj-time.core :as t]
             [amazonica.aws.s3 :as s3]
             [overtone.at-at :as at]
             [clj-time.format :as tf]
             [clojure.string :as string])
-  (:import (java.io PrintWriter InputStream ByteArrayInputStream)
+  (:import (java.io ByteArrayInputStream)
            (java.util UUID)))
 
-
-; Mock json capability for java.io.InputStream.
-; Needed to serialize non-text requests, e.g. in Pierone
-(extend InputStream json/JSONWriter
-  {:-write (fn [^InputStream is #^PrintWriter out]
-             (.print out (json/write-str (str "Some " (.getName (class is)) ". Content omitted."))))})
+; #30 encode input streams like before so tests work
+(add-encoder java.io.InputStream
+             (fn [stream jsonGenerator]
+               (.writeString jsonGenerator
+                             (str "Some " (.getName (class stream)) ". Content omitted."))))
 
 (defn running? [component]
   (:audit-logs component))
@@ -91,7 +91,7 @@
   (let [previous-logs (empty-logs audit-logs)]
     (when (seq previous-logs)
       (try
-        (let [file-content (string/join "\n" (map json/write-str previous-logs))
+        (let [file-content (string/join "\n" (map json/encode previous-logs))
               file-stream (-> file-content (.getBytes "UTF-8") (ByteArrayInputStream.))
               content-length (count file-content)
               file-name (tf/unparse audit-logs-file-formatter (t/now))]

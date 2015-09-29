@@ -16,12 +16,10 @@
   (:require [com.stuartsierra.component :as component]
             [org.zalando.stups.friboo.log :as log]
             [org.zalando.stups.friboo.config :refer [require-config]]
-            [clojure.data.json :as json]
+            [cheshire.generate :refer [add-encoder]]
             [com.netflix.hystrix.core :refer [defcommand]])
   (:import (com.jolbox.bonecp BoneCPDataSource)
            (org.flywaydb.core Flyway)
-           (java.sql Timestamp)
-           (java.io PrintWriter)
            (org.postgresql.util PSQLException)
            (com.netflix.hystrix.exception HystrixBadRequestException)
            (com.fasterxml.jackson.databind.util ISO8601Utils)))
@@ -87,15 +85,11 @@
      (stop [this#]
        (stop-component this#))))
 
-; provide json serialization
-(defn- serialize-sql-timestamp
-  "Serializes a sql timestamp to json."
-  [^Timestamp timestamp #^PrintWriter out]
-  (.print out (json/write-str (ISO8601Utils/format timestamp true))))
-
-; add json capability to java.sql.Timestamp
-(extend Timestamp json/JSONWriter
-  {:-write serialize-sql-timestamp})
+; #30 cheshire drops the milliseconds by default
+(add-encoder java.sql.Timestamp
+             (fn [timestamp jsonGenerator]
+               (.writeString jsonGenerator
+                             (str (ISO8601Utils/format timestamp true)))))
 
 ; helper for hystrix wrapping
 

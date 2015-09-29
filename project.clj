@@ -13,7 +13,7 @@
   :java-source-paths ["java"]
 
   :dependencies [[org.clojure/clojure "1.7.0"]
-                 [io.sarnowski/swagger1st "0.15.0"]
+                 [io.sarnowski/swagger1st "0.16.0"]
                  [org.zalando.stups/txdemarcator "0.7.0"]
                  [com.stuartsierra/component "0.2.3"]
                  [ring "1.4.0"]
