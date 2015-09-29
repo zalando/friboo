@@ -31,7 +31,6 @@
                (.writeString jsonGenerator
                              (str "Some " (.getName (class stream)) ". Content omitted."))))
 
-
 (defn running? [component]
   (:audit-logs component))
 
