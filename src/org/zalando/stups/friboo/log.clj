@@ -14,14 +14,14 @@
 
 (ns org.zalando.stups.friboo.log
   (:require [clojure.tools.logging :as clojure-logging]
-            [clojure.data.json :as json]
+            [cheshire.core :as json]
             ; loads joda datetime json serialization
             [io.sarnowski.swagger1st.parser]))
 
 (defn format-value
   "Formats dynamic information for logs."
   [value]
-  (str "[" (json/write-str value :escape-slash false) "]"))
+  (str "[" (json/encode value) "]"))
 
 (defn format-values
   "Formats dynamic information for logs."

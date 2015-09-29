@@ -1,7 +1,7 @@
 (ns org.zalando.stups.friboo.system.db-test
   (:require [clojure.test :refer :all]
             [org.zalando.stups.friboo.system.db :refer :all]
-            [clojure.data.json :as json]
+            [cheshire.core :as json]
             [clj-time.format :as f])
   (:import (java.sql Timestamp)
            (com.fasterxml.jackson.databind.util ISO8601Utils)
@@ -10,8 +10,8 @@
 (deftest test-sql-timestamp-serialization
   (let [actual-millis (System/currentTimeMillis)
         timestamp (Timestamp. actual-millis)
-        json (json/write-str timestamp)
-        timestamp-string (json/read-str json)]
+        json (json/encode timestamp)
+        timestamp-string (json/decode json)]
     (println "Milliseconds " actual-millis "have been serialized to " json)
 
     (are [parsed-millis]
