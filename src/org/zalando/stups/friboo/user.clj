@@ -35,7 +35,7 @@
    (let [teams (get-teams team-service-url token user-id)]
      (if (empty? teams)
        (do
-         (log/warn "ACCESS DENIED (unauthorized) because user is not any team.")
+         (log/warn "ACCESS DENIED (unauthorized) because user is not in any team.")
          (api/throw-error 403 "user has no teams"
                           {:user user-id}))
        (set (map :name teams))))))
