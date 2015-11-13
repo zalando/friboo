@@ -69,7 +69,7 @@
      (log/warn "ACCESS DENIED (unauthenticated) because token does not contain user information.")
      (api/throw-error 403 "no user information available"))
    (let [robot-team (get-service-team service-user-url token user-id)]
-     (when-not (seq robot-team)
+     (when (clojure.string/blank? robot-team)
        (log/warn "ACCESS DENIED (unauthorized) because user is not in any team.")
        (api/throw-error 403 "user has no teams"
                         {:user user-id}))
