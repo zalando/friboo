@@ -17,10 +17,22 @@
                     :oauth-token access-token
                     :as          :json})))
 
+; get team for service user
+(defcommand
+  fetch-service-team
+  [service-user-url access-token user-id]
+  (-> (http/get (r/conpath service-user-url "/services/" user-id)
+                           {:oauth-token access-token
+                            :as :json})
+      (get-in [:body :owner])))
 
 (def get-teams
   "Cache team information for 5 minutes"
   (memo/fifo fetch-teams (cache/ttl-cache-factory {} :ttl 300000) :fifo/threshold 100))
+
+(def get-service-team
+  "Cache service users' team information for 5 minutes"
+  (memo/fifo fetch-service-team (cache/ttl-cache-factory {} :ttl 300000) :fifo/threshold 100))
 
 (defn require-teams
   "Returns a set of teams, a user is part of or throws an exception if user is in no team."
@@ -39,6 +51,35 @@
          (api/throw-error 403 "user has no teams"
                           {:user user-id}))
        (set (map :name teams))))))
+
+(defn require-service-team
+  "Returns the team of the service user and throws an exception if service user is not in the required team."
+  ([team request]
+   (require-service-team team
+                         (get (:tokeninfo request) "uid")
+                         (:tokeninfo request)
+                         (require-config (:configuration request) :service-user-url)))
+  ([team tokeninfo service-user-url]
+   (require-service-team team
+                         (get tokeninfo "uid")
+                         (get tokeninfo "access_token")
+                         service-user-url))
+  ([team user-id token service-user-url]
+   (when-not user-id
+     (log/warn "ACCESS DENIED (unauthenticated) because token does not contain user information.")
+     (api/throw-error 403 "no user information available"))
+   (let [robot-team (get-service-team service-user-url token user-id)]
+     (when (clojure.string/blank? robot-team)
+       (log/warn "ACCESS DENIED (unauthorized) because user is not in any team.")
+       (api/throw-error 403 "user has no teams"
+                        {:user user-id}))
+     (when-not (= robot-team team)
+       (log/warn "ACCESS DENIED (unauthorized) because user is not in team %s." team)
+       (api/throw-error 403 (str "user not in team " team)
+                        {:user user-id
+                         :required-team team
+                         :user-team robot-team}))
+     robot-team)))
 
 (defn require-team
   "Throws an exception if user is not in the given team, else returns nil."
