@@ -50,6 +50,19 @@
       (is (= (count @calls) 1)))))
 
 (deftest test-require-service-team
+  (testing "it should extract the token"
+    (let [calls (atom [])
+          request {:configuration {:service-user-url "https://example.org"}
+                   :tokeninfo {"uid" "robobro"
+                               "access_token" "token"
+                               "scope" ["uid"]}}]
+      (with-redefs [get-service-team (comp (constantly "team-broforce")
+                                           (track calls :service-user))]
+        (require-service-team "team-broforce" request)
+        (same! 1 (count @calls))
+        (same! ["https://example.org" "token" "robobro"]
+               (:args (first @calls))))))
+
   (testing "it should throw without user id"
     (let [calls (atom [])]
       (with-redefs [get-service-team (track calls :service-user)]
