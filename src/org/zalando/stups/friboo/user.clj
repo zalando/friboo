@@ -57,7 +57,7 @@
   ([team request]
    (require-service-team team
                          (get (:tokeninfo request) "uid")
-                         (:tokeninfo request)
+                         (get (:tokeninfo request) "access_token")
                          (require-config (:configuration request) :service-user-url)))
   ([team tokeninfo service-user-url]
    (require-service-team team
