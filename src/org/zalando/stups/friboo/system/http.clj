@@ -154,7 +154,7 @@
         (let [reason (-> e .getCause .toString)
               failure-type (str (.getFailureType e))]
           (log/warn (str "Hystrix: " (.getMessage e) " %s occurred, because %s") failure-type reason)
-          (api/throw-error 503 "A dependency is unavailable."))))))
+          (api/throw-error 503 (str "A dependency is unavailable: " (.getMessage e))))))))
 
 (defn mark-transaction
   "Trigger the TransactionMarker with the swagger operationId for instrumentalisation."
