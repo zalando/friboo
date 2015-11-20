@@ -16,13 +16,13 @@
             [io.sarnowski.swagger1st.core :as s1st]
             [io.sarnowski.swagger1st.executor :as s1stexec]
             [io.sarnowski.swagger1st.util.api :as s1stapi]
-            [io.sarnowski.swagger1st.util.security :as s1stsec]
             [io.sarnowski.swagger1st.util.api :as api]
             [org.zalando.stups.friboo.ring :as ring]
             [org.zalando.stups.friboo.log :as log]
             [org.zalando.stups.friboo.config :refer [require-config]]
             [org.zalando.stups.friboo.system.metrics :refer [collect-swagger1st-zmon-metrics]]
             [org.zalando.stups.friboo.system.audit-log :refer [collect-audit-logs]]
+            [org.zalando.stups.friboo.system.oauth2 :as oauth2]
             [ring.adapter.jetty :as jetty]
             [ring.util.response :as r]
             [ring.middleware.resource :refer [wrap-resource]]
@@ -123,28 +123,6 @@
   (fn [request]
     (next-handler (assoc request :configuration configuration))))
 
-(defcommand
-  fetch-tokeninfo
-  [tokeninfo-url access-token]
-  (let [response (client/get tokeninfo-url
-                             {:query-params     {:access_token access-token}
-                              :throw-exceptions false
-                              :as               :json-string-keys})]
-    (if (client/server-error? response)
-      (throw (IllegalStateException. (str "tokeninfo endpoint returned status code: " (:status response))))
-      response)))
-
-(defn resolve-access-token-real
-  "Checks with a tokeninfo endpoint for the token's validity and returns the session information if valid."
-  [tokeninfo-url access-token]
-  (let [response (fetch-tokeninfo tokeninfo-url access-token)
-        body (:body response)]
-    (when (client/success? response) body)))
-
-(def resolve-access-token
-  "Cache token info for 2 minutes"
-  (memo/fifo resolve-access-token-real (cache/ttl-cache-factory {} :ttl 120000) :fifo/threshold 100))
-
 (defn convert-hystrix-exceptions
   [next-handler]
   (fn [request]
@@ -177,7 +155,7 @@
       component)
 
     (do
-      (log/info "Starting HTTP daemon for API" definition)
+      (log/info "Starting HTTP daemon for API %s" definition)
       (let [configuration (:configuration component)
 
             handler (-> (s1st/context :yaml-cp definition)
@@ -198,22 +176,22 @@
                                          (if (:tokeninfo-url configuration)
                                            (do
                                              (log/info "Checking access tokens against %s." (:tokeninfo-url configuration))
-                                             (s1stsec/oauth-2.0 configuration s1stsec/check-corresponding-attributes
-                                                                :resolver-fn resolve-access-token))
+                                             (oauth2/oauth-2.0 configuration oauth2/check-corresponding-attributes
+                                                        :resolver-fn oauth2/resolve-access-token))
                                            (do
                                              (log/warn "No token info URL configured; NOT ENFORCING SECURITY!")
-                                             (s1stsec/allow-all)))})
+                                             (oauth2/allow-all)))})
                         (s1st/ring enrich-log-lines)        ; now we also know the user, replace request info
                         (s1st/ring add-config-to-request configuration)
                         (s1st/ring collect-audit-logs audit-logger)
                         (s1st/executor :resolver resolver-fn))]
 
         (if (:no-listen? configuration)
-          (merge component {:httpd                nil
-                            :handler              handler})
-          (merge component {:httpd                (jetty/run-jetty handler (merge configuration
-                                                                                  {:join? false}))
-                            :handler              handler}))))))
+          (merge component {:httpd   nil
+                            :handler handler})
+          (merge component {:httpd   (jetty/run-jetty handler (merge configuration
+                                                                     {:join? false}))
+                            :handler handler}))))))
 
 (defn stop-component
   "Stops the http component."
@@ -227,8 +205,8 @@
       (log/info "Stopping HTTP daemon.")
       (when-not (:no-listen? (:configuration component))
         (.stop (:httpd component)))
-      (merge component {:httpd                nil
-                        :handler              nil}))))
+      (merge component {:httpd   nil
+                        :handler nil}))))
 
 (defmacro def-http-component
   "Creates an http component with your name and all your given dependencies. Those dependencies will also be available
