@@ -17,6 +17,7 @@
             [io.sarnowski.swagger1st.executor :as s1stexec]
             [io.sarnowski.swagger1st.util.api :as s1stapi]
             [io.sarnowski.swagger1st.util.api :as api]
+            [io.sarnowski.swagger1st.util.newrelic :as newrelic]
             [org.zalando.stups.friboo.ring :as ring]
             [org.zalando.stups.friboo.log :as log]
             [org.zalando.stups.friboo.config :refer [require-config]]
@@ -170,6 +171,7 @@
                         (s1st/mapper)
                         (s1st/ring collect-swagger1st-zmon-metrics metrics)
                         (s1st/ring mark-transaction)
+                        (newrelic/tracer)
                         (s1st/parser)
                         (s1st/ring convert-hystrix-exceptions)
                         (s1st/protector {"oauth2"

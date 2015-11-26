@@ -4,7 +4,8 @@
             [org.zalando.stups.friboo.config :refer [require-config]]
             [overtone.at-at :as at])
   (:import (overtone.at_at RecurringJob ScheduledJob)
-           (org.zalando.stups.txdemarcator Transactions)))
+           (org.zalando.stups.txdemarcator Transactions)
+           (com.newrelic.api.agent Trace NewRelic)))
 
 ;; got from overtaone/at-at
 
@@ -40,6 +41,20 @@
     (= RecurringJob (type job)) (recurring-job-string job)
     (= ScheduledJob (type job)) (scheduled-job-string job)))
 
+(definterface NewRelicTraceable
+  (callWithTrace [transaction-name callback]))
+
+(deftype NewRelicTracer []
+  NewRelicTraceable
+  ; create a method with the @Trace annotation
+  (^{Trace {:dispatcher true}}
+  callWithTrace [_ transaction-name callback]
+    ; set up transaction name
+    (NewRelic/setTransactionName nil transaction-name)
+    (callback)))
+
+(def newrelic-tracer (NewRelicTracer.))
+
 (defmacro job
   "Produces a non-argument function that also marks the execution for transaction naming."
   [f & args]
@@ -47,7 +62,9 @@
         tx-name# (str ns "/" name)]
     `(fn []
        (try
-         (Transactions/runAsBackgroundTransaction ~tx-name# #(~f ~@args))
+         (.callWithTrace newrelic-tracer ~tx-name#
+                         (fn []
+                           (Transactions/runAsBackgroundTransaction ~tx-name# #(~f ~@args))))
          (catch Exception e#
            (log/error e# "No job catch-all defined for job %s; bubbled up exception; no further executions will occur!"
                       ~tx-name#)
