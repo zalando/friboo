@@ -20,10 +20,10 @@
 ; get team for service user
 (defcommand
   fetch-service-team
-  [kio-url access-token user-id]
-  (let [STUPS_PREFIX "stups_"
-        robot (if (.startsWith user-id STUPS_PREFIX)
-                (.substring user-id (.length STUPS_PREFIX))
+  [kio-url access-token prefix user-id]
+  (let [robot (if (and (not (clojure.string/blank? prefix))
+                       (.startsWith user-id prefix))
+                (.substring user-id (.length prefix))
                 user-id)]
     (-> (http/get (r/conpath kio-url "/apps/" robot)
                   {:oauth-token access-token
@@ -62,17 +62,19 @@
    (require-service-team team
                          (get (:tokeninfo request) "uid")
                          (get (:tokeninfo request) "access_token")
-                         (require-config (:configuration request) :kio-url)))
-  ([team tokeninfo kio-url]
+                         (require-config (:configuration request) :kio-url)
+                         (get-in request [:configuration :username-prefix])))
+  ([team tokeninfo kio-url username-prefix]
    (require-service-team team
                          (get tokeninfo "uid")
                          (get tokeninfo "access_token")
-                         kio-url))
-  ([team user-id token kio-url]
+                         kio-url
+                         username-prefix))
+  ([team user-id token kio-url username-prefix]
    (when-not user-id
      (log/warn "ACCESS DENIED (unauthenticated) because token does not contain user information.")
      (api/throw-error 403 "no user information available"))
-   (let [robot-team (get-service-team kio-url token user-id)]
+   (let [robot-team (get-service-team kio-url token username-prefix user-id)]
      (when (clojure.string/blank? robot-team)
        (log/warn "ACCESS DENIED (unauthorized) because user is not in any team.")
        (api/throw-error 403 "user has no teams"

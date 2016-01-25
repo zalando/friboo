@@ -52,7 +52,8 @@
 (deftest test-require-service-team
   (testing "it should extract the token"
     (let [calls (atom [])
-          request {:configuration {:kio-url "kio-api"}
+          request {:configuration {:kio-url "kio-api"
+                                   :username-prefix "prefix"}
                    :tokeninfo {"uid" "robobro"
                                "access_token" "token"
                                "scope" ["uid"]}}]
@@ -60,7 +61,7 @@
                                            (track calls :kio-api))]
         (require-service-team "team-broforce" request)
         (same! 1 (count @calls))
-        (same! ["kio-api" "token" "robobro"]
+        (same! ["kio-api" "token" "prefix" "robobro"]
                (:args (first @calls))))))
 
   (testing "it should throw without user id"
@@ -86,7 +87,8 @@
           (require-service-team "team-broforce"
                                 "robobro"
                                 {}
-                                "kio-api")
+                                "kio-api"
+                                "")
           (is false)
           (catch ExceptionInfo ex
             (let [data (ex-data ex)]
@@ -102,7 +104,8 @@
           (require-service-team "team-broforce"
                                 "stups_robobro"
                                 {}
-                                "kio-api")
+                                "kio-api"
+                                "stups_")
           (catch ExceptionInfo ex
             (same! 1 (count @calls))
             (let [call (first @calls)]
@@ -117,7 +120,8 @@
           (require-service-team "team-broforce"
                                 "robobro"
                                 {}
-                                "kio-api")
+                                "kio-api"
+                                "")
           (is false)
           (catch ExceptionInfo ex
             (let [data (ex-data ex)]
@@ -133,5 +137,6 @@
           (let [team (require-service-team "team-broforce"
                                            "robobro"
                                            {}
-                                           "kio-api")]
+                                           "kio-api"
+                                           "")]
             (same! team "team-broforce"))))))
