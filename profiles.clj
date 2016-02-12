@@ -1,0 +1,1 @@
+{:test {:env {:tokeninfo-url "default-tokeninfo"}}}

@@ -38,7 +38,7 @@
 
 (def default-http-namespaces
   "Config namespaces, that are used by the default http component"
-  [:http :mgmt-http :audit-log :metrics])
+  [:http :tokeninfo :mgmt-http :audit-log :metrics])
 
 (defn default-http-namespaces-and
   "Returns a vector, containing all default config namespaces for http components and the given additional ones"

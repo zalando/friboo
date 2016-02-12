@@ -116,8 +116,15 @@
 (defn load-configuration
   "Loads configuration options from various places."
   [namespaces default-configurations]
-  (let [default-configuration (apply merge default-configurations)]
-    (parse-namespaces
-      (decrypt
-        (merge default-configuration env))
-      (conj namespaces :system))))
+  (let [default-configuration (apply merge default-configurations)
+        config (parse-namespaces
+                 (decrypt
+                   (merge default-configuration env))
+                 (conj namespaces :system))
+        default-tokeninfo (get-in config [:tokeninfo :url])]
+    ; IFF there is no tokeninfo-url in http namespace, overwrite it with
+    ; default tokeninfo
+    (if (and (not (get-in config [:http :tokeninfo-url]))
+             (not (nil? default-tokeninfo)))
+      (assoc-in config [:http :tokeninfo-url] default-tokeninfo)
+      config)))
