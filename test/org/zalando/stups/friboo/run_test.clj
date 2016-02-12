@@ -30,10 +30,8 @@
                         [default-http-configuration
                          default-configuration])
        system (system/http-system-map configuration map->API [])]
-   (println configuration)
-   (println (:tokeninfo-url env))
    (is (= "default-tokeninfo"
-          (get-in [:http :tokeninfo-url] configuration)))
+          (get-in configuration [:http :tokeninfo-url])))
    (system/run configuration
                system)))
 

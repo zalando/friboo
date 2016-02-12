@@ -122,9 +122,7 @@
                    (merge default-configuration env))
                  (conj namespaces :system))
         default-tokeninfo (get-in config [:tokeninfo :url])]
-    ; IFF there is no tokeninfo-url in http namespace, overwrite it with
-    ; default tokeninfo
-    (if (and (not (get-in config [:http :tokeninfo-url]))
-             (not (nil? default-tokeninfo)))
-      (assoc-in config [:http :tokeninfo-url] default-tokeninfo)
-      config)))
+    ; if there is no tokeninfo-url in http namespace,
+    ; overwrite it with default tokeninfo
+    (assoc-in config [:http :tokeninfo-url] (or (get-in config [:http :tokeninfo-url])
+                                                default-tokeninfo))))
