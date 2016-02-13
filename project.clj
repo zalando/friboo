@@ -19,7 +19,7 @@
                  [ring "1.4.0"]
                  [org.eclipse.jetty/jetty-servlet "9.2.10.v20150310"]
                  [amalloy/ring-gzip-middleware "0.1.3"]
-                 [environ "1.0.1"]
+                 [environ "1.0.2"]
                  [io.clj/logging "0.8.1"]
                  [org.apache.logging.log4j/log4j-api "2.4.1"]
                  [org.apache.logging.log4j/log4j-core "2.4.1"]
@@ -48,7 +48,8 @@
                  [commons-codec "1.10"]
                  [com.newrelic.agent.java/newrelic-api "3.22.1"]]
 
-  :plugins [[lein-cloverage "1.0.6"]]
+  :plugins [[lein-cloverage "1.0.6"]
+            [lein-environ "1.0.2"]]
 
   :pom-addition [:developers
                  [:developer {:id "sarnowski"}
