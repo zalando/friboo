@@ -44,7 +44,7 @@
   "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
    are unique in general and flattens them for easier access."
   [request]
-  (apply merge (map (fn [[k v]] v) (:parameters request))))
+  (apply merge (vals (:parameters request))))
 
 (defn compute-request-info
   "Creates a nice, readable request info text for logline prefixing."
@@ -179,7 +179,7 @@
                                            (do
                                              (log/info "Checking access tokens against %s." (:tokeninfo-url configuration))
                                              (oauth2/oauth-2.0 configuration oauth2/check-corresponding-attributes
-                                                        :resolver-fn oauth2/resolve-access-token))
+                                                               :resolver-fn oauth2/resolve-access-token))
                                            (do
                                              (log/warn "No token info URL configured; NOT ENFORCING SECURITY!")
                                              (oauth2/allow-all)))})
