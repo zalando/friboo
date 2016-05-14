@@ -210,6 +210,28 @@
       (merge component {:httpd   nil
                         :handler nil}))))
 
+;; Resolver function takes a map {"operationId" "com.example.foo/bar"} and returns a function of request
+;;  that calls (com.example.foo/bar params request ...)
+;; In this case we want to call com.example.foo/bar with some additional parameters,
+;;  with values already known at component start
+;; These additional parameters are called dependencies and may be provided as individual arguments:
+;;  (com.example.foo/bar params request db tokens)
+;; Or as a map:
+;;  (com.example.foo/bar params request {:db db :tokens tokens})
+
+(defn make-resolver-fn-with-deps-as-args [_ dependency-values]
+  (fn [request-definition]
+    (if-let [operation-fn (s1stexec/operationId-to-function request-definition)]
+      (fn [request]
+        (apply operation-fn (flatten-parameters request) request dependency-values)))))
+
+(defn make-resolver-fn-with-deps-as-map [dependency-names dependency-values]
+  (let [dependency-map (zipmap (map keyword dependency-names) dependency-values)]
+    (fn [request-definition]
+      (if-let [operation-fn (s1stexec/operationId-to-function request-definition)]
+        (fn [request]
+          (operation-fn (flatten-parameters request) request dependency-map))))))
+
 (defmacro def-http-component
   "Creates an http component with your name and all your given dependencies. Those dependencies will also be available
    for your functions.
@@ -225,15 +247,12 @@
   [name definition dependencies]
   ; 'configuration' has to be given on initialization
   ; 'httpd' is the internal http server state
-  `(defrecord ~name [~(symbol "configuration") ~(symbol "httpd") ~(symbol "metrics") ~(symbol "audit-log") ~@dependencies]
+  `(defrecord ~name [~'configuration ~'httpd ~'metrics ~'audit-log ~@dependencies]
      Lifecycle
 
      (start [this#]
-       (let [resolver-fn# (fn [request-definition#]
-                            (if-let [cljfn# (s1stexec/operationId-to-function request-definition#)]
-                              (fn [request#]
-                                (cljfn# (flatten-parameters request#) request# ~@dependencies))))]
-         (start-component this# ~(symbol "metrics") ~(symbol "audit-log") ~definition resolver-fn#)))
+       (let [resolver-fn# (make-resolver-fn-with-deps-as-args '~dependencies ~dependencies)]
+         (start-component this# ~'metrics ~'audit-log ~definition resolver-fn#)))
 
      (stop [this#]
        (stop-component this#))))
