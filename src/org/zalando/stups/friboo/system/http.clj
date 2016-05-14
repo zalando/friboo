@@ -232,6 +232,12 @@
         (fn [request]
           (operation-fn (flatten-parameters request) request dependency-map))))))
 
+(defn select-resolver-fn-maker [{:keys [dependencies-as-map resolver-fn-maker]}]
+  (cond
+    dependencies-as-map make-resolver-fn-with-deps-as-map
+    resolver-fn-maker resolver-fn-maker
+    :default make-resolver-fn-with-deps-as-args))
+
 (defmacro def-http-component
   "Creates an http component with your name and all your given dependencies. Those dependencies will also be available
    for your functions.
@@ -242,16 +248,27 @@
      (defn my-operation-function [parameters request db scheduler]
        ...)
 
+  A flag can be provided to specify an alternative way of calling operation functions:
+     (def-http-component API \"example-api.yaml\" [db scheduler] :dependencies-as-map true)
+
+     (defn my-operation-function [parameters request {:keys [db scheduler]}]
+       ...)
+
+  You can specify a custom factory function for resolvers
+     (def-http-component API \"example-api.yaml\" [db scheduler] :resolver-fn-maker (fn ...))
+  Look at the existing implementations of make-resolver-fn-with-deps-as-args and make-resolver-fn-with-deps-as-map.
+
   The first parameter will be a flattened list of the request parameters. See the flatten-parameters function.
   "
-  [name definition dependencies]
+  [name definition dependencies & {:as opts}]
   ; 'configuration' has to be given on initialization
   ; 'httpd' is the internal http server state
   `(defrecord ~name [~'configuration ~'httpd ~'metrics ~'audit-log ~@dependencies]
      Lifecycle
 
      (start [this#]
-       (let [resolver-fn# (make-resolver-fn-with-deps-as-args '~dependencies ~dependencies)]
+       (let [resolver-fn-maker# (select-resolver-fn-maker ~opts)
+             resolver-fn# (resolver-fn-maker# '~dependencies ~dependencies)]
          (start-component this# ~'metrics ~'audit-log ~definition resolver-fn#)))
 
      (stop [this#]
