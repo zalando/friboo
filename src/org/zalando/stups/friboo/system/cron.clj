@@ -96,5 +96,5 @@
        (assoc this# :pool ~(symbol "pool")))
 
      (stop [this#]
-       (at/stop-and-reset-pool! (:pool this#) :kill)
+       (at/stop-and-reset-pool! (:pool this#) :strategy :kill)
        (dissoc this# :pool))))
