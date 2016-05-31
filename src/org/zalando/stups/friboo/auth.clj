@@ -6,9 +6,15 @@
             [io.sarnowski.swagger1st.util.api :as api]
             [com.netflix.hystrix.core :as hystrix :refer [defcommand]]))
 
+(defn- log-hystrix-fallback
+  [& [_ policy team]]
+  (log/warn (str "auth/fetch-auth unavailable, denying access as fallback: " policy "/" team)))
+
 (defcommand fetch-auth
   "Asks magnificent if the user for this token has access to resources of this team. Returns true or false."
-  {:hystrix/fallback-fn (constantly false)}
+  {:hystrix/fallback-fn (comp
+                          (constantly false)
+                          log-hystrix-fallback)}
   [magnificent-url policy team token]
   (let [auth-response (http/get
                         (r/conpath magnificent-url "/auth")
@@ -17,11 +23,12 @@
                          :throw-exceptions false
                          :body             {:policy  policy
                                             :payload {:team team}}})]
+    (println auth-response)
     (= 200 (:status auth-response))))
 
 (defn get-auth
   "Convenience wrapper around fetch-auth, with logging"
-  [request & [team]]
+  [request team]
   (let [magnificent-url (require-config (:configuration request) :magnificent-url)
         policy          (require-config (:configuration request) :magnificent-policy)
         token           (get-in request [:tokeninfo "access_token"])
@@ -36,4 +43,4 @@
   (let [has-access? (get-auth request team)
         user        (get-in request [:tokeninfo "uid"] "unknown user")]
     (when-not has-access?
-      (api/throw-error 403 (str "Access to team" team "not granted to user" user)))))
+      (api/throw-error 403 "ACCESS DENIED" {:team team :user user}))))
