@@ -14,7 +14,9 @@
 
 (ns org.zalando.stups.friboo.ring
   (:require [ring.util.response :refer :all]
-            [clojure.string :as s]))
+            [io.sarnowski.swagger1st.util.api :refer [throw-error]]
+            [clojure.string :as s]
+            [clojure.tools.logging :as log]))
 
 ;; some convinience helpers
 
@@ -55,3 +57,13 @@
       (if xs
         (recur url xs)
         url))))
+
+(defmacro with-json-handler
+  "Common part for every handler function, including content-type-json and nice exception handling."
+  [& body]
+  `(content-type-json
+     (try
+       ~@body
+       (catch Exception e#
+         (log/error (str e#))
+         (throw-error 500 "Internal server error" (str e#))))))
