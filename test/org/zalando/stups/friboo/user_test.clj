@@ -37,23 +37,23 @@
 
 (deftest test-get-teams
   (let [calls (atom [])]
-    (with-redefs [http/get (comp (constantly {:body [{:name "team1"} {:name "team2"}]})
+    (with-redefs [http/get (comp (constantly {:body [{:id "team1"} {:id "team2"}]})
                                  (track calls :http-get))]
-      (is (= (get-teams "https://teams.example.org" "TOKEN12345" "a-user") [{:name "team1"} {:name "team2"}]))
+      (is (= (get-teams "magnificent-url" "TOKEN12345" "a-user") [{:id "team1"} {:id "team2"}]))
       (is (= (count @calls) 1))
       (is (= (:args (first @calls))
-             ["https://teams.example.org/api/accounts/aws" {:query-params {:member "a-user"}
-                                                            :oauth-token "TOKEN12345"
-                                                            :as :json}]))
-      (is (= (get-teams "https://teams.example.org" "TOKEN12345" "a-user") [{:name "team1"} {:name "team2"}]))
+             ["magnificent-url/teams" {:query-params {:realm "employees"
+                                                :user "a-user"}
+                                 :oauth-token "TOKEN12345"
+                                 :as :json}]))
+      (is (= (get-teams "magnificent-url" "TOKEN12345" "a-user") [{:id "team1"} {:id "team2"}]))
       ; we should have a cache hit, i.e. no HTTP call this time..
       (is (= (count @calls) 1)))))
 
 (deftest test-require-service-team
   (testing "it should extract the token"
     (let [calls (atom [])
-          request {:configuration {:kio-url "kio-api"
-                                   :username-prefix "prefix"}
+          request {:configuration {:magnificent-url "magnificent-url"}
                    :tokeninfo {"uid" "robobro"
                                "access_token" "token"
                                "scope" ["uid"]}}]
@@ -61,7 +61,7 @@
                                            (track calls :kio-api))]
         (require-service-team "team-broforce" request)
         (same! 1 (count @calls))
-        (same! ["kio-api" "token" "prefix" "robobro"]
+        (same! ["magnificent-url" "token" "robobro"]
                (:args (first @calls))))))
 
   (testing "it should throw without user id"
@@ -70,7 +70,7 @@
         (try
           (require-service-team "team-britney"
                                 {:tokeninfo {}
-                                 :configuration {:kio-url "kio-api"}})
+                                 :configuration {:magnificent-url "magnificent-url"}})
           (is false)
           (catch ExceptionInfo ex
             (let [data (ex-data ex)]
@@ -81,52 +81,35 @@
 
   (testing "it should throw if robot is in no team"
     (let [calls (atom [])]
-      (with-redefs [get-service-team (comp (constantly "")
-                                           (track calls :kio-api))]
+      (with-redefs [get-service-team (comp (constantly nil)
+                                           (track calls :magnificent-url))]
         (try
           (require-service-team "team-broforce"
                                 "robobro"
                                 {}
-                                "kio-api"
-                                "")
+                                "magnificent-url")
           (is false)
           (catch ExceptionInfo ex
             (let [data (ex-data ex)]
               (same! 1 (count @calls))
-              (same! :kio-api (:key (first @calls)))
+              (same! :magnificent-url (:key (first @calls)))
               (same! 403 (:http-code data))
               (true! (.contains (:message data) "user has no teams"))))))))
-
-  (testing "it should strip prefix from user id if it starts with stups_"
-    (let [calls (atom [])]
-      (with-redefs [http/get (track calls :http)]
-        (try
-          (require-service-team "team-broforce"
-                                "stups_robobro"
-                                {}
-                                "kio-api"
-                                "stups_")
-          (catch ExceptionInfo ex
-            (same! 1 (count @calls))
-            (let [call (first @calls)]
-              (same! :http (:key call))
-              (same! (first (:args call)) "kio-api/apps/robobro")))))))
 
   (testing "it should throw if robot is not in correct team"
     (let [calls (atom [])]
       (with-redefs [get-service-team (comp (constantly "team-terrorists")
-                                           (track calls :kio-api))]
+                                           (track calls :magnificent-url))]
         (try
           (require-service-team "team-broforce"
                                 "robobro"
                                 {}
-                                "kio-api"
-                                "")
+                                "magnificent-url")
           (is false)
           (catch ExceptionInfo ex
             (let [data (ex-data ex)]
               (same! 1 (count @calls))
-              (same! :kio-api (:key (first @calls)))
+              (same! :magnificent-url (:key (first @calls)))
               (same! 403 (:http-code data))
               (true! (.contains (:message data) "user not in team team-broforce"))))))))
 
@@ -137,6 +120,5 @@
           (let [team (require-service-team "team-broforce"
                                            "robobro"
                                            {}
-                                           "kio-api"
-                                           "")]
+                                           "magnificent-url")]
             (same! team "team-broforce"))))))
