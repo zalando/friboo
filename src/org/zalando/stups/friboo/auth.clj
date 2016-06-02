@@ -23,6 +23,7 @@
                          :throw-exceptions false
                          :body             {:policy  policy
                                             :payload {:team team}}})]
+    (println auth-response)
     (= 200 (:status auth-response))))
 
 (defn get-auth
