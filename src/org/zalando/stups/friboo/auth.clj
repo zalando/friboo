@@ -23,19 +23,22 @@
                          :throw-exceptions false
                          :body             {:policy  policy
                                             :payload {:team team}}})]
-    (println auth-response)
     (= 200 (:status auth-response))))
 
 (defn get-auth
   "Convenience wrapper around fetch-auth, with logging"
   [request team]
-  (let [magnificent-url (require-config (:configuration request) :magnificent-url)
-        policy          (require-config (:configuration request) :magnificent-policy)
-        token           (get-in request [:tokeninfo "access_token"])
-        user            (get-in request [:tokeninfo "uid"] "unknown user")
-        has-access?     (fetch-auth magnificent-url policy team token)]
-    (log/info (str "Access to team" team (if has-access? "granted" "denied") "to" user))
-    has-access?))
+  (if-not (get-in request [:configuration :magnificent-url])
+    (do
+      (log/warn "Magnificent URL not configured, not checking authentication!")
+      true)
+    (let [magnificent-url (get-in request [:configuration :magnificent-url])
+          policy          (get-in request [:configuration :magnificent-policy] "relaxed-radical-agility")
+          token           (get-in request [:tokeninfo "access_token"])
+          user            (get-in request [:tokeninfo "uid"] "unknown user")
+          has-access?     (fetch-auth magnificent-url policy team token)]
+      (log/info (str "Access to team" team (if has-access? "granted" "denied") "to" user))
+      has-access?)))
 
 (defn require-auth
   "Like get-auth, but throws an error if user has no access"
