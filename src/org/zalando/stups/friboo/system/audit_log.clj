@@ -50,6 +50,16 @@
 (defn is-modifying? [{:keys [request-method]}]
   (#{:post :put :patch :delete} request-method))
 
+(defn extract-audit-log-record [request]
+  (-> request
+      (assoc :logged-on (t/now))
+      (dissoc :swagger)
+      (dissoc :configuration)
+      (dissoc :body)
+      (dissoc-in [:tokeninfo "open_id"])
+      (dissoc-in [:tokeninfo "access_token"])
+      (dissoc-in [:headers "authorization"])))
+
 (defn collect-audit-logs
   "Adds request map to audit-logs container."
   [next-handler component]
@@ -61,13 +71,7 @@
           (when (and (>= status 200)
                      (< status 300)
                      (is-modifying? request))
-            (let [audit-log (-> request
-                                (assoc :logged-on (t/now))
-                                (dissoc :swagger)
-                                (dissoc :configuration)
-                                (dissoc :body)
-                                (dissoc-in [:tokeninfo "access_token"])
-                                (dissoc-in [:headers "authorization"]))]
+            (let [audit-log (extract-audit-log-record request)]
               (add-logs (:audit-logs component) [audit-log])))
           response)))
     (do

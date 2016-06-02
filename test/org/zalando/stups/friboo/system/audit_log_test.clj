@@ -53,6 +53,7 @@
                        :configuration  "will be erased"
                        :body           "will be erased"
                        :tokeninfo      {"access_token" "will be erased"
+                                        "open_id"      "will be erased"
                                         "uid"          "testuser"}
                        :headers        {"authorization" "will be erased"
                                         "content-type"  "application/json"}

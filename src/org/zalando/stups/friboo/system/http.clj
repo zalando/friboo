@@ -44,7 +44,7 @@
   "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
    are unique in general and flattens them for easier access."
   [request]
-  (apply merge (map (fn [[k v]] v) (:parameters request))))
+  (apply merge (vals (:parameters request))))
 
 (defn compute-request-info
   "Creates a nice, readable request info text for logline prefixing."
@@ -179,7 +179,7 @@
                                            (do
                                              (log/info "Checking access tokens against %s." (:tokeninfo-url configuration))
                                              (oauth2/oauth-2.0 configuration oauth2/check-corresponding-attributes
-                                                        :resolver-fn oauth2/resolve-access-token))
+                                                               :resolver-fn oauth2/resolve-access-token))
                                            (do
                                              (log/warn "No token info URL configured; NOT ENFORCING SECURITY!")
                                              (oauth2/allow-all)))})
@@ -210,6 +210,34 @@
       (merge component {:httpd   nil
                         :handler nil}))))
 
+;; Resolver function takes a map {"operationId" "com.example.foo/bar"} and returns a function of request
+;;  that calls (com.example.foo/bar params request ...)
+;; In this case we want to call com.example.foo/bar with some additional parameters,
+;;  with values already known at component start
+;; These additional parameters are called dependencies and may be provided as individual arguments:
+;;  (com.example.foo/bar params request db tokens)
+;; Or as a map:
+;;  (com.example.foo/bar params request {:db db :tokens tokens})
+
+(defn make-resolver-fn-with-deps-as-args [_ dependency-values]
+  (fn [request-definition]
+    (if-let [operation-fn (s1stexec/operationId-to-function request-definition)]
+      (fn [request]
+        (apply operation-fn (flatten-parameters request) request dependency-values)))))
+
+(defn make-resolver-fn-with-deps-as-map [dependency-names dependency-values]
+  (let [dependency-map (zipmap (map keyword dependency-names) dependency-values)]
+    (fn [request-definition]
+      (if-let [operation-fn (s1stexec/operationId-to-function request-definition)]
+        (fn [request]
+          (operation-fn (flatten-parameters request) request dependency-map))))))
+
+(defn select-resolver-fn-maker [{:keys [dependencies-as-map resolver-fn-maker]}]
+  (cond
+    dependencies-as-map make-resolver-fn-with-deps-as-map
+    resolver-fn-maker resolver-fn-maker
+    :default make-resolver-fn-with-deps-as-args))
+
 (defmacro def-http-component
   "Creates an http component with your name and all your given dependencies. Those dependencies will also be available
    for your functions.
@@ -220,20 +248,28 @@
      (defn my-operation-function [parameters request db scheduler]
        ...)
 
+  A flag can be provided to specify an alternative way of calling operation functions:
+     (def-http-component API \"example-api.yaml\" [db scheduler] :dependencies-as-map true)
+
+     (defn my-operation-function [parameters request {:keys [db scheduler]}]
+       ...)
+
+  You can specify a custom factory function for resolvers
+     (def-http-component API \"example-api.yaml\" [db scheduler] :resolver-fn-maker (fn ...))
+  Look at the existing implementations of make-resolver-fn-with-deps-as-args and make-resolver-fn-with-deps-as-map.
+
   The first parameter will be a flattened list of the request parameters. See the flatten-parameters function.
   "
-  [name definition dependencies]
+  [name definition dependencies & {:as opts}]
   ; 'configuration' has to be given on initialization
   ; 'httpd' is the internal http server state
-  `(defrecord ~name [~(symbol "configuration") ~(symbol "httpd") ~(symbol "metrics") ~(symbol "audit-log") ~@dependencies]
+  `(defrecord ~name [~'configuration ~'httpd ~'metrics ~'audit-log ~@dependencies]
      Lifecycle
 
      (start [this#]
-       (let [resolver-fn# (fn [request-definition#]
-                            (if-let [cljfn# (s1stexec/operationId-to-function request-definition#)]
-                              (fn [request#]
-                                (cljfn# (flatten-parameters request#) request# ~@dependencies))))]
-         (start-component this# ~(symbol "metrics") ~(symbol "audit-log") ~definition resolver-fn#)))
+       (let [resolver-fn-maker# (select-resolver-fn-maker ~opts)
+             resolver-fn# (resolver-fn-maker# '~dependencies ~dependencies)]
+         (start-component this# ~'metrics ~'audit-log ~definition resolver-fn#)))
 
      (stop [this#]
        (stop-component this#))))
