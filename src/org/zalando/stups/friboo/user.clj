@@ -45,6 +45,7 @@
   ([tokeninfo team-service-url]
    (require-teams (get tokeninfo "uid") (get tokeninfo "access_token") team-service-url))
   ([user-id token team-service-url]
+   (log/warn "DEPRECATED use of user/require-teams - please use auth/require-auth")
    (when-not user-id
      (log/warn "ACCESS DENIED (unauthenticated) because token does not contain user information.")
      (api/throw-error 403 "no user information available"))
@@ -71,6 +72,7 @@
                          kio-url
                          username-prefix))
   ([team user-id token kio-url username-prefix]
+   (log/warn "DEPRECATED use of user/require-service-team - please use auth/require-auth")
    (when-not user-id
      (log/warn "ACCESS DENIED (unauthenticated) because token does not contain user information.")
      (api/throw-error 403 "no user information available"))

@@ -86,18 +86,21 @@
 
 (defn run
   "Boots a whole new system."
-  [{configuration :system} system]
+  [{system-config :system http-config :http} system]
   (log/info "Starting system...")
 
-  (if-let [stups-log-level (:stups-log-level configuration)]
+  (if-let [stups-log-level (:stups-log-level system-config)]
     (do
       (log/warn "Setting %s log level to %s." stups-logger-name stups-log-level)
       (set-log-level! stups-log-level :logger-name stups-logger-name)))
 
-  (if-let [log-level (:log-level configuration)]
+  (if-let [log-level (:log-level system-config)]
     (do
       (log/warn "Setting log level to %s." log-level)
       (set-log-level! log-level)))
+
+  (when-not (:magnificent-url http-config)
+    (log/warn "No configuration of magnificent, auth/get-auth will always return true!"))
 
   (let [system (component/start system)]
 
