@@ -1,5 +1,6 @@
 (ns org.zalando.stups.friboo.auth
   (:require [clj-http.client :as http]
+            [cheshire.core :as json]
             [org.zalando.stups.friboo.ring :as r]
             [org.zalando.stups.friboo.config :refer [require-config]]
             [org.zalando.stups.friboo.log :as log]
@@ -21,8 +22,8 @@
                         {:content-type     :json
                          :oauth-token      token
                          :throw-exceptions false
-                         :body             {:policy  policy
-                                            :payload {:team team}}})]
+                         :body             (json/encode {:policy  policy
+                                                         :payload {:team team}})})]
     (= 200 (:status auth-response))))
 
 (defn get-auth
@@ -33,9 +34,10 @@
       true
       (let [policy      (get-in request [:configuration :magnificent-policy] "relaxed-radical-agility")
             token       (get-in request [:tokeninfo "access_token"])
+            realm       (get-in request [:tokeninfo "realm"])
             user        (get-in request [:tokeninfo "uid"] "unknown user")
             has-access? (fetch-auth magnificent-url policy team token)]
-        (log/info (str "Access to team" team (if has-access? "granted" "denied") "to" user))
+        (log/info (str "Access " (if has-access? "granted" "denied") ": %s") {:team team :user user :realm realm})
         has-access?))))
 
 (defn require-auth
