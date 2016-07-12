@@ -52,8 +52,7 @@ friboo-is-awesome
 │   └── friboo_is_awesome
 │       ├── api.clj
 │       ├── core.clj
-│       ├── db.clj
-│       └── jobs.clj
+│       └── db.clj
 └── test
     └── friboo_is_awesome
         ├── api_test.clj
@@ -73,7 +72,6 @@ friboo-is-awesome
 	* `core.clj` is the [system](https://github.com/stuartsierra/component#systems) definition.
 	* `api.clj` contains API endpoint handlers.
 	* `db.clj` contains generated functions for accessing the database.
-	* `jobs.clj` contains example usage of Jobs component.
 * `test` directory contains unit test examples using both `clojure.test` and [Midje](https://github.com/marick/Midje).
 
 ### Configuration options

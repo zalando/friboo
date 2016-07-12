@@ -27,7 +27,7 @@
   "Says hello"
   [{:keys [name] :as params} request db]
   (wrap-handler
-    (log/warn "Hello called for" name)
+    (log/warn "Hello called for %s" name)
     (response {:message (str "Hello " name)})))
 
 (defn create-or-update-greeting-template
@@ -48,7 +48,7 @@
   "Says hello"
   [{:keys [name greeting_id] :as params} request db]
   (wrap-handler
-    (log/info "Hello called for " name " with greeting template id " greeting_id)
+    (log/info "Hello called for %s with greeting template id %s" name greeting_id)
     (if-let [greeting-template (first (db/cmd-get-greeting {:id greeting_id} {:connection db}))]
       (response {:message (format (:g_template greeting-template) name)})
       (not-found {:message (str "Template not found with ID: " greeting_id)}))))

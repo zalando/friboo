@@ -61,7 +61,7 @@ paths:
           description: |
             Details about the greeting template
           schema:
-            $ref: '#/definitions/GreetingTemplateType'
+            $ref: '#/definitions/GreetingTemplate'
       responses:
         200:
           description: Greeting template stored

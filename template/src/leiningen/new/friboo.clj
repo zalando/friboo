@@ -43,7 +43,6 @@
              ["dev/user.clj" (render "user.clj" data)]
              ["src/{{nested-dirs}}/db.clj" (render "db.clj" data)]
              ["src/{{nested-dirs}}/api.clj" (render "api.clj" data)]
-             ["src/{{nested-dirs}}/jobs.clj" (render "jobs.clj" data)]
              ["src/{{nested-dirs}}/core.clj" (render "core.clj" data)]
              ["test/{{nested-dirs}}/core_test.clj" (render "core_test.clj" data)]
              ["test/{{nested-dirs}}/api_test.clj" (render "api_test.clj" data)]

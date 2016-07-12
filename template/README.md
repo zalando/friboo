@@ -6,12 +6,12 @@ This document only describes development guidelines. For usage please refer the 
 
 ## Development
 
-In order to try the template out without releasing to clojars, install it to the local `~/.m2` and specify `--snapshots` flag:
+In order to try the template out without releasing to clojars, install it to the local `~/.m2` and specify `--snapshot` flag:
 
 ```
 $ lein install
 $ cd ../..
-$ lein new friboo <project> --snapshots
+$ lein new friboo <project> --snapshot
 ```
 
 ## Testing
