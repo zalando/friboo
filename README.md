@@ -4,15 +4,19 @@
 [![Build Status](https://travis-ci.org/zalando-stups/friboo.svg?branch=master)](https://travis-ci.org/zalando-stups/friboo)
 [![Coverage Status](https://coveralls.io/repos/zalando-stups/friboo/badge.svg?branch=master&service=github)](https://coveralls.io/github/zalando-stups/friboo?branch=master)
 
-**Friboo** is a lightweight utility library for writing microservices in Clojure. It provides several components that you can use with Stuart Sierra's [component lifecycle framework](https://github.com/stuartsierra/component).
+**Friboo** is a lightweight utility library for writing microservices in Clojure. It provides several components that you can use with Stuart Sierra's [Component lifecycle framework](https://github.com/stuartsierra/component).
 
-Friboo encourages an "API First" approach based on the [Swagger specification](http://swagger.io/). This means that the REST API is defined as YAML. 
+Friboo encourages an "API First" approach based on the [Swagger specification](http://swagger.io/). As such, the REST API is defined as YAML. 
     
 ## Why Friboo?
+[** These could use a bit more "selling." Show a bit more how these options make work faster, easier, solve problems. Also, there's no explicit mention of OAuth2 here, even though it's in the tagline.] 
 
-— Friboo allows you to first define your API in a portable, language-agnostic format, and then implement it (with the help of [swagger1st](https://github.com/sarnowski/swagger1st)).
-— It contains ready-made components/building blocks for your applications: An HTTP server, DB access layer, and more. See [Helpful components](#helpful-components)).
-3. It contains the "glue code" for you, and there is already a recommended way of doing things.
+- Friboo allows you to first define your API in a portable, language-agnostic format, and then implement it (with the help of [swagger1st](https://github.com/sarnowski/swagger1st)).
+- It contains ready-made components/building blocks for your applications: An HTTP server, DB access layer, an audit log (in case you have compliance requirements to follow), and more. See [Helpful components](#helpful-components)).
+- It contains the "glue code" for you, and there is already a recommended way of doing things.
+
+## Development Status
+[**include here** + link to the contributor guidelines.] 
 
 ## Getting Started
 
@@ -74,9 +78,7 @@ friboo-is-awesome
 
 ### Configuration Options
 
-In `dev/user.clj`:
-
-* `:system-log-level` can be used to set the root logger to something other than `INFO`.
+In `dev/user.clj`, you can use `:system-log-level` to set the root logger to something other than `INFO`.
 
 ### HTTP Component
 
@@ -122,18 +124,17 @@ convenience function to create an HTTP system:
 
 #### Configuration Options
 
-The component has to be initialized with its configuration in the `:configuration` key.
+Initialize the component with its configuration in the `:configuration` key:
 
     (map->MyAPI {:configuration {:port        8080
                                  :cors-origin "*.zalando.de"}})
 
-* `:cors-origin` may be set to a domain mask for CORS access (e.g. `*.zalando.de`).
+* you may set `:cors-origin` to a domain mask for CORS access (e.g., `*.zalando.de`).
 * All configurations that Jetty supports.
 
-### DB component
+### Database Component
 
-The DB component is generated on demand by the `def-db-component` macro. The DB component is itself a `db-spec`
-compliant data structure, backed by a connection pool.
+The `def-db-component` macro generates the DB component on demand. The component is itself a `db-spec`-compliant data structure backed by a connection pool:
 
 ```clojure
 (ns mydb
@@ -142,52 +143,51 @@ compliant data structure, backed by a connection pool.
 (def-db-component MyDB)
 ```
 
-#### Configuration options
+#### Configuration Options
 
-The component has to be initialized with its configuration in the `:configuration` key.
+Initialize the component with its configuration in the `:configuration` key:
 
     (map->MyDB {:configuration {:subprotocol "postgresql"
                                 :subname     "localhost/mydb"}})
 
 TODO link to jdbc documentation, pool specific configuration like min- and max-pool-size
 
-### Audit log component
+### Audit Log Component
 
-The aim of the audit log component is to collect logs of all modifying http requests (POST, PUT, PATCH, DELETE) and 
-store them in an S3 bucket. These information can then be used to create an audit trail.
+The audit log component aims to collect logs of all modifying HTTP requests (POST, PUT, PATCH, DELETE) and 
+store them in an S3 bucket. You can then use this information to create an audit trail.
 
-#### Configuration options
+#### Configuration Options
 
 * Set `:audit-log-bucket` to enable this component
     * the value should address the name of an S3 bucket
     * the application must have write access to this bucket
-    * the frequency, with which the log files are written, can be adjusted with `:audit-log-flush-millis` (defaults to 10s)
-        * of course, no empty files will be written
-    * to build a meaningful file name pattern, the environment variables `APPLICATION_ID`, `APPLICATION_VERSION`
-      and `INSTANCE_ID` are used
+    * adjust the frequency with which the log files are written with `:audit-log-flush-millis` (defaults to 10s)
+        * no empty files will be written
+    * to build a meaningful file name pattern, use the environment variables `APPLICATION_ID`, `APPLICATION_VERSION`
+      and `INSTANCE_ID`
         * `INSTANCE_ID` defaults to random UUID
 
-### Metrics component
+### Metrics Component
 
 The metrics component initializes a [Dropwizard MetricsRegistry](http://metrics.dropwizard.io) to measure
-frequency and performance of the Swagger API endpoints (see HTTP component)
+frequency and performance of the Swagger API endpoints; see [HTTP component](#http-component).
 
 ### Management HTTP component
 
-This component starts another embedded Jetty at a different port (default 7979) and exposes endpoints used to monitor and manage the
-application:
+This component starts another embedded Jetty at a different port (default 7979) and exposes endpoints used to monitor and manage the application:
 
-* `/metrics` - A JSON document containing all metrics, gathered by the metrics component
-* `/hystrix.stream` - The Hystrix stream (can be aggregated by Turbine)
-* `/monitor/monitor.html` - The Hystrix dashboard
+* `/metrics`: A JSON document containing all metrics, gathered by the metrics component
+* `/hystrix.stream`: The [Hystrix](https://github.com/Netflix/Hystrix) stream (can be aggregated by [Turbine](https://github.com/Netflix/Turbine))
+* `/monitor/monitor.html`: The Hystrix dashboard
 
-#### Configuration options
+#### Configuration Options
 
-All Jetty configuration options, prefixed with `:mgmt-http-` or `MGMT_HTTP_`. 
+All Jetty configuration options are prefixed with `:mgmt-http-` or `MGMT_HTTP_`. 
 
-## Real-world usage
+## Real-World Usage
 
-There are multiple examples of real-world usages among the STUPS components:
+There are multiple examples of real-world usages of Friboo, including among Zalando's STUPS components:
 
 * [Pier One Docker registry](https://github.com/zalando-stups/pierone) (REST service with DB and S3 backend)
 * [Kio application registry](https://github.com/zalando-stups/kio) (REST service with DB)
@@ -195,7 +195,7 @@ There are multiple examples of real-world usages among the STUPS components:
 * [Essentials](https://github.com/zalando-stups/essentials) (REST service with DB)
 * [Hello world example](https://github.com/dryewo/friboo-hello-world-full) (project that served as base for the Leiningen template)
 
-TODO HINT: set java.util.logging.manager= org.apache.logging.log4j.jul.LogManager to have proper JUL logging
+TODO HINT: set java.util.logging.manager= org.apache.logging.log4j.jul.LogManager to have proper JUL logging.
 
 ## License
 
