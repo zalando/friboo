@@ -1,0 +1,17 @@
+# Leiningen
+pom.xml
+pom.xml.asc
+*jar
+/lib/
+/classes/
+/target/
+/checkouts/
+.lein-*
+.nrepl-port
+
+# IntelliJ IDEA
+/.idea
+*.iml
+
+# Development
+/dev-config.edn

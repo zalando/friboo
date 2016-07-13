@@ -1,0 +1,144 @@
+swagger: '2.0'
+
+# basic meta information
+info:
+  title: {{name}}
+  version: '1.0'
+  description: Very nice {{name}}
+
+externalDocs:
+  description: External docs
+  url: http://example.github.io/
+
+# technical configuration
+basePath: /
+produces:
+- application/json
+consumes:
+- application/json
+
+security:
+  - oauth2: [uid]
+
+paths:
+
+  '/':
+    get:
+      summary: Application root
+      operationId: org.zalando.stups.friboo.system.http/redirect-to-swagger-ui
+      responses:
+        default:
+          description: "Redirects to /ui/"
+
+  '/hello/{name}':
+    get:
+      summary: Says hello
+      description: |
+        Says hello personally to {name}
+      parameters:
+        - $ref: '#/parameters/Name'
+      tags:
+        - General
+      operationId: "{{namespace}}.api/get-hello"
+      responses:
+        200:
+          description: Hello is said
+        default:
+          $ref: '#/responses/Error'
+
+  '/greetings/{greeting_id}':
+    put:
+      summary: Save greeting template
+      description: |
+        Creates or updates a greeting template.
+      tags:
+        - General
+      operationId: "{{namespace}}.api/create-or-update-greeting-template"
+      parameters:
+        - $ref: '#/parameters/GreetingId'
+        - name: greeting_template
+          in: body
+          description: |
+            Details about the greeting template
+          schema:
+            $ref: '#/definitions/GreetingTemplate'
+      responses:
+        200:
+          description: Greeting template stored
+        default:
+          $ref: '#/responses/Error'
+    delete:
+      summary: Delete greeting template
+      description: |
+        Deletes a greeting template.
+      tags:
+        - General
+      operationId: "{{namespace}}.api/delete-greeting-template"
+      parameters:
+        - $ref: '#/parameters/GreetingId'
+      responses:
+        200:
+          description: Greeting template deleted
+        default:
+          $ref: '#/responses/Error'
+
+  '/greetings/{greeting_id}/{name}':
+    get:
+      summary: Says hello
+      description: |
+        Says hello personally to {name}, based on the template
+      parameters:
+        - $ref: '#/parameters/GreetingId'
+        - $ref: '#/parameters/Name'
+      tags:
+        - General
+      operationId: "{{namespace}}.api/get-templated-greeting"
+      responses:
+        200:
+          description: Hello is said
+        default:
+          $ref: '#/responses/Error'
+
+parameters:
+  Name:
+    name: name
+    in: path
+    type: string
+    description: Name of the person to greet
+  GreetingId:
+    name: greeting_id
+    in: path
+    type: string
+    description: ID of the greeting template
+
+responses:
+  Error:
+    description: An error occured.
+    schema:
+      $ref: '#/definitions/Error'
+
+definitions:
+  GreetingTemplate:
+    type: object
+    properties:
+      template:
+        type: string
+        description: Format string containing one %s
+        example: Hello, %s
+    required:
+      - template
+  Error:
+    type: object
+    properties:
+      message:
+        type: string
+    example:
+      message: Internal Server Error
+
+securityDefinitions:
+  oauth2:
+    type: oauth2
+    flow: implicit
+    authorizationUrl: https://example.com/oauth2/dialog
+    scopes:
+      uid: Unique identifier of the user accessing the service.

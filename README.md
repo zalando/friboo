@@ -10,31 +10,73 @@ A utility library to write microservices in Clojure. The library provides some c
 Friboo encourages the Swagger API-first approach where the REST API is defined as YAML.
 See the [swagger1st library](https://github.com/sarnowski/swagger1st).
 
-## Usage
-
-Dependency:
+## Dependency
 
     [org.zalando.stups/friboo <latest version>]
+    
+## Why Friboo?
 
-from Maven central.
+1. Friboo allows you to first define your API in a portable, language-agnostic format and implement it after (with help of [swagger1st](https://github.com/sarnowski/swagger1st)).
+2. Friboo contains ready-made components, building blocks for your applications (HTTP server, DB access layer and more, see [Helpful components](#helpful-components)).
+3. It's actually a lightweight framework, it contains the glue code for you, and there is already a recommended way of doing things.
 
-Most simple case:
+## Usage
 
-```clojure
-(ns examples
-  (:require [org.zalando.stups.friboo.system :as system]
-            [com.stuartsierra.component :as component])
-  (:gen-class))
+### Starting a new project
 
-(defn -main [&args]
-  (let [configuration (system/load-configuration)
-        system (component/new-system
-          ; your system setup, see https://github.com/stuartsierra/component
-          )]
-    (system/run configuration)))
+To start a new project based on the Friboo library, use the Leiningen template:
+
+    $ lein new friboo <project>
+
+This will generate an example project containing some "foobar" logic that can serve as a starting point in your experiments.
+
+A new directory with `<project>` name will be created in the current directory, containing the following files:
+
+```
+friboo-is-awesome
+├── Dockerfile
+├── README.md
+├── db.sh
+├── dev
+│   └── user.clj
+├── dev-config.edn
+├── project.clj
+├── resources
+│   ├── api
+│   │   └── api.yaml
+│   └── db
+│       ├── migration
+│       │   └── V1__initial_schema.sql
+│       └── queries.sql
+├── src
+│   └── friboo_is_awesome
+│       ├── api.clj
+│       ├── core.clj
+│       └── db.clj
+└── test
+    └── friboo_is_awesome
+        ├── api_test.clj
+        └── core_test.clj
 ```
 
+* `Dockerfile` contains basic instructions for packaging the uberjar into a docker image.
+* `README.md` contains some pregenerated development tips for the new project.
+* `db.sh` contains handy scripts to run a PostgreSQL database in a docker container for development and integration testing.
+* `dev/user.clj` contains functions for [Reloaded Workflow](http://thinkrelevance.com/blog/2013/06/04/clojure-workflow-reloaded).
+* `dev-config.edn` contains environment variables that will be used during reloaded workflow. (Instead of putting them into `profiles.clj`)
+* `project.clj` contains project definition with all the dependencies and some additional plugins.
+* `resources/api.yaml` contains [Swagger API definition](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md) in .yaml format.
+* `resources/db/migration/V1__initial_schema.sql` contains some DDL for the example (used by [Flyway](https://flywaydb.org/) library).
+* `resources/db/queries.sql` contains example queries for the app (used by [Yesql](https://github.com/krisajenkins/yesql) library).
+* `src` directory contains some components:
+	* `core.clj` is the [system](https://github.com/stuartsierra/component#systems) definition.
+	* `api.clj` contains API endpoint handlers.
+	* `db.clj` contains generated functions for accessing the database.
+* `test` directory contains unit test examples using both `clojure.test` and [Midje](https://github.com/marick/Midje).
+
 ### Configuration options
+
+In `dev/user.clj`:
 
 * `:system-log-level` can be used to set the root logger to something different than `INFO`.
 
@@ -153,16 +195,17 @@ All Jetty configuration options, prefixed with `:mgmt-http-` or `MGMT_HTTP_`.
 
 There are multiple examples of real-world usages among the STUPS components:
 
-* [Kio application registry](https://github.com/zalando-stups/kio) (REST service with DB)
 * [Pier One Docker registry](https://github.com/zalando-stups/pierone) (REST service with DB and S3 backend)
+* [Kio application registry](https://github.com/zalando-stups/kio) (REST service with DB)
 * [Even SSH access granting service](https://github.com/zalando-stups/even) (REST service with DB)
-* [Hello world example](https://github.com/hjacobs/friboo-hello-world) (very simple REST service without DB)
+* [Essentials](https://github.com/zalando-stups/essentials) (REST service with DB)
+* [Hello world example](https://github.com/dryewo/friboo-hello-world-full) (project that served as base for the Leiningen template)
 
 TODO HINT: set java.util.logging.manager= org.apache.logging.log4j.jul.LogManager to have proper JUL logging
 
 ## License
 
-Copyright © 2015 Zalando SE
+Copyright © 2016 Zalando SE
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
