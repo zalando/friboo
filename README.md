@@ -13,6 +13,7 @@ Friboo encourages an "API First" approach based on the [Swagger specification](h
 
 - Friboo allows you to first define your API in a portable, language-agnostic format, and then implement it (with the help of [swagger1st](https://github.com/sarnowski/swagger1st)).
 - It contains ready-made components/building blocks for your applications: An HTTP server, DB access layer, an audit log (in case you have compliance requirements to follow), and more. See [Helpful components](#helpful-components)).
+- It does OAuth 2.0 access token checking out of the box.
 - It contains the "glue code" for you, and there is already a recommended way of doing things.
 
 ## Development Status
@@ -130,7 +131,15 @@ Initialize the component with its configuration in the `:configuration` key:
                                  :cors-origin "*.zalando.de"}})
 
 * you may set `:cors-origin` to a domain mask for CORS access (e.g., `*.zalando.de`).
-* All configurations that Jetty supports.
+* All [configuration options](https://ring-clojure.github.io/ring/ring.adapter.jetty.html) that Jetty supports.
+
+#### OAuth 2.0 access token checking
+
+You can provide `TOKENINFO_URL` environment variable with value like this:
+
+    https://auth.example.com/oauth2/tokeninfo
+
+Then the HTTP component will require every incoming request to have `Authorization: Bearer <ACCESS_TOKEN>` header, it will validate the token using the specified URL (`GET https://auth.example.com/oauth2/tokeninfo?access_token=<ACCESS_TOKEN>`).
 
 ### Database Component
 
