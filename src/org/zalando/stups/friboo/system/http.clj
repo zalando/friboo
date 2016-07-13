@@ -147,9 +147,29 @@
   [& _]
   (ring.util.response/redirect "/ui/"))
 
+(defn ring*
+  "Applies multiple ring middlewares using existing `s1st/ring` appliance.
+  Middleware is a context->context fn."
+  [context & middlewares]
+  (reduce #(s1st/ring %1 %2) context middlewares))
+
+(defn ring-middlewares
+  "Default set of ring middlewares that are groupped by s1st phases"
+  {:before-discover [wrap-gzip
+                     enrich-log-lines
+                     s1stapi/add-hsts-header
+                     s1stapi/add-cors-headers
+                     s1stapi/surpress-favicon-requests
+                     health-endpoint
+                     map-alternate-auth-header]
+   :before-parser [mark-transaction]
+   :before-protector [convert-hystrix-exceptions]
+   :before-executor [; when we also know the user, replace request info
+                     enrich-log-lines]})
+
 (defn start-component
   "Starts the http component."
-  [component metrics audit-logger definition resolver-fn]
+  [component metrics audit-logger definition resolver-fn middleware]
   (if (:handler component)
     (do
       (log/debug "Skipping start of HTTP ; already running.")
@@ -158,22 +178,20 @@
     (do
       (log/info "Starting HTTP daemon for API %s" definition)
       (let [configuration (:configuration component)
-
             handler (-> (s1st/context :yaml-cp definition)
-                        (s1st/ring wrap-gzip)
-                        (s1st/ring enrich-log-lines)
-                        (s1st/ring s1stapi/add-hsts-header)
-                        (s1st/ring s1stapi/add-cors-headers)
-                        (s1st/ring s1stapi/surpress-favicon-requests)
-                        (s1st/ring health-endpoint)
-                        (s1st/ring map-alternate-auth-header)
+
+                        (ring* {:before-discover middleware})
                         (s1st/discoverer)
+
+                        (ring* {:before-mapper middleware})
                         (s1st/mapper)
+
                         (s1st/ring collect-swagger1st-zmon-metrics metrics)
-                        (s1st/ring mark-transaction)
+                        (ring* {:before-parser middleware})
                         (newrelic/tracer)
                         (s1st/parser)
-                        (s1st/ring convert-hystrix-exceptions)
+
+                        (ring* (:before-protector middleware))
                         (s1st/protector {"oauth2"
                                          (if (:tokeninfo-url configuration)
                                            (do
@@ -183,7 +201,8 @@
                                            (do
                                              (log/warn "No token info URL configured; NOT ENFORCING SECURITY!")
                                              (oauth2/allow-all)))})
-                        (s1st/ring enrich-log-lines)        ; now we also know the user, replace request info
+
+                        (ring* (:before-executor middleware))
                         (s1st/ring add-config-to-request configuration)
                         (s1st/ring collect-audit-logs audit-logger)
                         (s1st/executor :resolver resolver-fn))]
@@ -269,7 +288,8 @@
      (start [this#]
        (let [resolver-fn-maker# (select-resolver-fn-maker ~opts)
              resolver-fn# (resolver-fn-maker# '~dependencies ~dependencies)]
-         (start-component this# ~'metrics ~'audit-log ~definition resolver-fn#)))
+         (start-component this# ~'metrics ~'audit-log ~definition resolver-fn# (or (:middleware opts)
+                                                                                   default-middleware))))
 
      (stop [this#]
        (stop-component this#))))
