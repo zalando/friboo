@@ -6,8 +6,12 @@
 
 **Friboo** is a lightweight utility library for writing microservices in Clojure. It provides several components that you can use with Stuart Sierra's [Component lifecycle framework](https://github.com/stuartsierra/component).
 
-Friboo encourages an "API First" approach based on the [Swagger specification](http://swagger.io/). As such, the REST API is defined as YAML. 
-    
+Friboo encourages an "API First" approach based on the [Swagger specification](http://swagger.io/). As such, the REST API is defined as YAML.
+
+## Leiningen dependency
+
+    [org.zalando.stups/friboo 1.9.0]
+
 ## Why Friboo?
 [** These could use a bit more "selling." Show a bit more how these options make work faster, easier, solve problems.] 
 
