@@ -15,16 +15,13 @@ Friboo encourages an "API First" approach based on the [Swagger specification](h
 ## Why Friboo?
 
 - Friboo allows you to first define your API in a portable, language-agnostic format, and then implement it (with the help of [swagger1st](https://github.com/sarnowski/swagger1st)).
-- It contains ready-made components/building blocks for your applications: An HTTP server, DB access layer, an audit log (in case you have compliance requirements to follow), and more. See [Helpful components](#helpful-components)).
+- It contains ready-made components/building blocks for your applications: An HTTP server, DB access layer, an audit log (in case you have compliance requirements to follow), and more. See [helpful components](#helpful-components).
 - It does OAuth 2.0 access token checking out of the box.
 - It contains the "glue code" for you, and there is already a recommended way of doing things.
 
 ## Development Status
 
-Currently Friboo is used in production by numerous services in Zalando (see list at the end of this page).
-
-However, there is always room for improvement (check the issues), Friboo is open for contributions. For
-more details, check the [contribution guidelines](CONTRIBUTING.md).
+Friboo is used in production by numerous services in Zalando; see the list at the end of this page. However, there is always room for improvement, so we're very much open to contributions. For more details, see our [contribution guidelines](CONTRIBUTING.md) and check the Issues Tracker for ways you can help.
 
 ## Getting Started
 
@@ -76,7 +73,7 @@ friboo-is-awesome
 * `project.clj` contains the project definition with all dependencies and some additional plugins.
 * `resources/api.yaml` contains the [Swagger API definition](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md) in .yaml format.
 * `resources/db/migration/V1__initial_schema.sql` contains some DDL for the example (used by the [Flyway](https://flywaydb.org/) library).
-* `resources/db/queries.sql` contains sample queries for the app (used by [Yesql](https://github.com/krisajenkins/yesql) library).
+* `resources/db/queries.sql` contains sample queries for the app (used by the [Yesql](https://github.com/krisajenkins/yesql) library).
 * the `src` directory contains these components:
 	* `core.clj` is the [system](https://github.com/stuartsierra/component#systems) definition.
 	* `api.clj` contains API endpoint handlers.
@@ -86,6 +83,8 @@ friboo-is-awesome
 ### Configuration Options
 
 In `dev/user.clj`, you can use `:system-log-level` to set the root logger to something other than `INFO`.
+
+## Helpful Components
 
 ### HTTP Component
 
@@ -104,8 +103,8 @@ API functions require:
 ```
 
 The first argument of your function will always be a flattened map (parameter name -> parameter value) without `in`
-categorisation. This does violate the Swagger spec, which calls parameter names only unique in combination with your
-`in` type. Nevertheless, be cautious when modelling your API.
+categorisation. This violates the Swagger spec, which calls parameter names only unique in combination with your
+`in` type, so be cautious when modelling your API.
 
 The HTTP component is dependent upon a few other components (audit-log, metrics), so we recommend that you use the
 convenience function to create an HTTP system:
@@ -137,15 +136,15 @@ Initialize the component with its configuration in the `:configuration` key:
                                  :cors-origin "*.zalando.de"}})
 
 * you may set `:cors-origin` to a domain mask for CORS access (e.g., `*.zalando.de`).
-* All [configuration options](https://ring-clojure.github.io/ring/ring.adapter.jetty.html) that Jetty supports.
+* These are all the [configuration options](https://ring-clojure.github.io/ring/ring.adapter.jetty.html) that Jetty supports.
 
 #### OAuth 2.0 access token checking
 
-You can provide `TOKENINFO_URL` environment variable with value like this:
+You can provide a `TOKENINFO_URL` environment variable with a value like this:
 
     https://auth.example.com/oauth2/tokeninfo
 
-Then the HTTP component will require every incoming request to have `Authorization: Bearer <ACCESS_TOKEN>` header, it will validate the token using the specified URL (`GET https://auth.example.com/oauth2/tokeninfo?access_token=<ACCESS_TOKEN>`).
+Then the HTTP component will require every incoming request to have the `Authorization: Bearer <ACCESS_TOKEN>` header. It will validate the token using the specified URL (`GET https://auth.example.com/oauth2/tokeninfo?access_token=<ACCESS_TOKEN>`).
 
 ### Database Component
 
