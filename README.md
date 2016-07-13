@@ -4,33 +4,42 @@
 [![Build Status](https://travis-ci.org/zalando-stups/friboo.svg?branch=master)](https://travis-ci.org/zalando-stups/friboo)
 [![Coverage Status](https://coveralls.io/repos/zalando-stups/friboo/badge.svg?branch=master&service=github)](https://coveralls.io/github/zalando-stups/friboo?branch=master)
 
-A utility library to write microservices in Clojure. The library provides some components that can be used with the
-[component lifecycle framework](https://github.com/stuartsierra/component).
+**Friboo** is a lightweight utility library for writing microservices in Clojure. It provides several components that you can use with Stuart Sierra's [Component lifecycle framework](https://github.com/stuartsierra/component).
 
-Friboo encourages the Swagger API-first approach where the REST API is defined as YAML.
-See the [swagger1st library](https://github.com/sarnowski/swagger1st).
+Friboo encourages an "API First" approach based on the [Swagger specification](http://swagger.io/). As such, the REST API is defined as YAML.
 
-## Dependency
+## Leiningen dependency
 
-    [org.zalando.stups/friboo <latest version>]
-    
+    [org.zalando.stups/friboo 1.9.0]
+
 ## Why Friboo?
 
-1. Friboo allows you to first define your API in a portable, language-agnostic format and implement it after (with help of [swagger1st](https://github.com/sarnowski/swagger1st)).
-2. Friboo contains ready-made components, building blocks for your applications (HTTP server, DB access layer and more, see [Helpful components](#helpful-components)).
-3. It's actually a lightweight framework, it contains the glue code for you, and there is already a recommended way of doing things.
+- Friboo allows you to first define your API in a portable, language-agnostic format, and then implement it (with the help of [swagger1st](https://github.com/sarnowski/swagger1st)).
+- It contains ready-made components/building blocks for your applications: An HTTP server, DB access layer, an audit log (in case you have compliance requirements to follow), and more. See [Helpful components](#helpful-components)).
+- It does OAuth 2.0 access token checking out of the box.
+- It contains the "glue code" for you, and there is already a recommended way of doing things.
 
-## Usage
+## Development Status
 
-### Starting a new project
+Currently Friboo is used in production by numerous services in Zalando (see list at the end of this page).
 
-To start a new project based on the Friboo library, use the Leiningen template:
+However, there is always room for improvement (check the issues), Friboo is open for contributions. For
+more details, check the [contribution guidelines](CONTRIBUTING.md).
+
+## Getting Started
+
+### Requirements
+
+* [Leiningen](http://leiningen.org/)
+
+### Starting a New Project
+To start a new project based on Friboo, use the Leiningen template:
 
     $ lein new friboo <project>
 
-This will generate an example project containing some "foobar" logic that can serve as a starting point in your experiments.
+This will generate a sample project containing some "foobar" logic that can serve as a starting point in your experiments.
 
-A new directory with `<project>` name will be created in the current directory, containing the following files:
+A new directory with the `<project>` name will be created in the current directory, containing the following files:
 
 ```
 friboo-is-awesome
@@ -59,35 +68,29 @@ friboo-is-awesome
         └── core_test.clj
 ```
 
-* `Dockerfile` contains basic instructions for packaging the uberjar into a docker image.
+* `Dockerfile` contains basic instructions for packaging the uberjar into a Docker image.
 * `README.md` contains some pregenerated development tips for the new project.
-* `db.sh` contains handy scripts to run a PostgreSQL database in a docker container for development and integration testing.
+* `db.sh` contains handy scripts to run a PostgreSQL database in a Docker container for development and integration testing.
 * `dev/user.clj` contains functions for [Reloaded Workflow](http://thinkrelevance.com/blog/2013/06/04/clojure-workflow-reloaded).
-* `dev-config.edn` contains environment variables that will be used during reloaded workflow. (Instead of putting them into `profiles.clj`)
-* `project.clj` contains project definition with all the dependencies and some additional plugins.
-* `resources/api.yaml` contains [Swagger API definition](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md) in .yaml format.
-* `resources/db/migration/V1__initial_schema.sql` contains some DDL for the example (used by [Flyway](https://flywaydb.org/) library).
-* `resources/db/queries.sql` contains example queries for the app (used by [Yesql](https://github.com/krisajenkins/yesql) library).
-* `src` directory contains some components:
+* `dev-config.edn` contains environment variables that will be used during reloaded workflow (instead of putting them into `profiles.clj`).
+* `project.clj` contains the project definition with all dependencies and some additional plugins.
+* `resources/api.yaml` contains the [Swagger API definition](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md) in .yaml format.
+* `resources/db/migration/V1__initial_schema.sql` contains some DDL for the example (used by the [Flyway](https://flywaydb.org/) library).
+* `resources/db/queries.sql` contains sample queries for the app (used by [Yesql](https://github.com/krisajenkins/yesql) library).
+* the `src` directory contains these components:
 	* `core.clj` is the [system](https://github.com/stuartsierra/component#systems) definition.
 	* `api.clj` contains API endpoint handlers.
 	* `db.clj` contains generated functions for accessing the database.
-* `test` directory contains unit test examples using both `clojure.test` and [Midje](https://github.com/marick/Midje).
+* the `test` directory contains unit test examples using both `clojure.test` and [Midje](https://github.com/marick/Midje).
 
-### Configuration options
+### Configuration Options
 
-In `dev/user.clj`:
+In `dev/user.clj`, you can use `:system-log-level` to set the root logger to something other than `INFO`.
 
-* `:system-log-level` can be used to set the root logger to something different than `INFO`.
+### HTTP Component
 
-## Helpful components
-
-Friboo mainly provides some helpful utilities which are mostly presented as components.
-
-### HTTP component
-
-The HTTP component is generated on demand by the `def-http-component` macro. You can define which dependencies your
-API functions require.
+The `def-http-component` macro generates the HTTP component on demand. You can define which dependencies your
+API functions require:
 
 ```clojure
 (ns myapi
@@ -101,11 +104,11 @@ API functions require.
 ```
 
 The first argument of your function will always be a flattened map (parameter name -> parameter value) without `in`
-categorisation. This does violate the swagger spec which calls parameter names only unique in combination with your
-`in` type. You have to take care during modelling your API.
+categorisation. This does violate the Swagger spec, which calls parameter names only unique in combination with your
+`in` type. Nevertheless, be cautious when modelling your API.
 
-The HTTP component has some dependencies to other components (audit-log, metrics). It is recommended to use the
-convenience function, to create an http system:
+The HTTP component is dependent upon a few other components (audit-log, metrics), so we recommend that you use the
+convenience function to create an HTTP system:
 
 ```clojure
 (ns my-app.core
@@ -126,20 +129,27 @@ convenience function, to create an http system:
     (system/run configuration system)))
 ```
 
-#### Configuration options
+#### Configuration Options
 
-The component has to be initialized with its configuration in the `:configuration` key.
+Initialize the component with its configuration in the `:configuration` key:
 
     (map->MyAPI {:configuration {:port        8080
                                  :cors-origin "*.zalando.de"}})
 
-* `:cors-origin` may be set to a domain mask for CORS access (e.g. `*.zalando.de`).
-* All configurations that Jetty supports.
+* you may set `:cors-origin` to a domain mask for CORS access (e.g., `*.zalando.de`).
+* All [configuration options](https://ring-clojure.github.io/ring/ring.adapter.jetty.html) that Jetty supports.
 
-### DB component
+#### OAuth 2.0 access token checking
 
-The DB component is generated on demand by the `def-db-component` macro. The DB component is itself a `db-spec`
-compliant data structure, backed by a connection pool.
+You can provide `TOKENINFO_URL` environment variable with value like this:
+
+    https://auth.example.com/oauth2/tokeninfo
+
+Then the HTTP component will require every incoming request to have `Authorization: Bearer <ACCESS_TOKEN>` header, it will validate the token using the specified URL (`GET https://auth.example.com/oauth2/tokeninfo?access_token=<ACCESS_TOKEN>`).
+
+### Database Component
+
+The `def-db-component` macro generates the DB component on demand. The component is itself a `db-spec`-compliant data structure backed by a connection pool:
 
 ```clojure
 (ns mydb
@@ -148,52 +158,51 @@ compliant data structure, backed by a connection pool.
 (def-db-component MyDB)
 ```
 
-#### Configuration options
+#### Configuration Options
 
-The component has to be initialized with its configuration in the `:configuration` key.
+Initialize the component with its configuration in the `:configuration` key:
 
     (map->MyDB {:configuration {:subprotocol "postgresql"
                                 :subname     "localhost/mydb"}})
 
 TODO link to jdbc documentation, pool specific configuration like min- and max-pool-size
 
-### Audit log component
+### Audit Log Component
 
-The aim of the audit log component is to collect logs of all modifying http requests (POST, PUT, PATCH, DELETE) and 
-store them in an S3 bucket. These information can then be used to create an audit trail.
+The audit log component aims to collect logs of all modifying HTTP requests (POST, PUT, PATCH, DELETE) and 
+store them in an S3 bucket. You can then use this information to create an audit trail.
 
-#### Configuration options
+#### Configuration Options
 
 * Set `:audit-log-bucket` to enable this component
     * the value should address the name of an S3 bucket
     * the application must have write access to this bucket
-    * the frequency, with which the log files are written, can be adjusted with `:audit-log-flush-millis` (defaults to 10s)
-        * of course, no empty files will be written
-    * to build a meaningful file name pattern, the environment variables `APPLICATION_ID`, `APPLICATION_VERSION`
-      and `INSTANCE_ID` are used
+    * adjust the frequency with which the log files are written with `:audit-log-flush-millis` (defaults to 10s)
+        * no empty files will be written
+    * to build a meaningful file name pattern, use the environment variables `APPLICATION_ID`, `APPLICATION_VERSION`
+      and `INSTANCE_ID`
         * `INSTANCE_ID` defaults to random UUID
 
-### Metrics component
+### Metrics Component
 
 The metrics component initializes a [Dropwizard MetricsRegistry](http://metrics.dropwizard.io) to measure
-frequency and performance of the Swagger API endpoints (see HTTP component)
+frequency and performance of the Swagger API endpoints; see [HTTP component](#http-component).
 
 ### Management HTTP component
 
-This component starts another embedded Jetty at a different port (default 7979) and exposes endpoints used to monitor and manage the
-application:
+This component starts another embedded Jetty at a different port (default 7979) and exposes endpoints used to monitor and manage the application:
 
-* `/metrics` - A JSON document containing all metrics, gathered by the metrics component
-* `/hystrix.stream` - The Hystrix stream (can be aggregated by Turbine)
-* `/monitor/monitor.html` - The Hystrix dashboard
+* `/metrics`: A JSON document containing all metrics, gathered by the metrics component
+* `/hystrix.stream`: The [Hystrix](https://github.com/Netflix/Hystrix) stream (can be aggregated by [Turbine](https://github.com/Netflix/Turbine))
+* `/monitor/monitor.html`: The Hystrix dashboard
 
-#### Configuration options
+#### Configuration Options
 
-All Jetty configuration options, prefixed with `:mgmt-http-` or `MGMT_HTTP_`. 
+All Jetty configuration options are prefixed with `:mgmt-http-` or `MGMT_HTTP_`. 
 
-## Real-world usage
+## Real-World Usage
 
-There are multiple examples of real-world usages among the STUPS components:
+There are multiple examples of real-world usages of Friboo, including among Zalando's STUPS components:
 
 * [Pier One Docker registry](https://github.com/zalando-stups/pierone) (REST service with DB and S3 backend)
 * [Kio application registry](https://github.com/zalando-stups/kio) (REST service with DB)
@@ -201,7 +210,7 @@ There are multiple examples of real-world usages among the STUPS components:
 * [Essentials](https://github.com/zalando-stups/essentials) (REST service with DB)
 * [Hello world example](https://github.com/dryewo/friboo-hello-world-full) (project that served as base for the Leiningen template)
 
-TODO HINT: set java.util.logging.manager= org.apache.logging.log4j.jul.LogManager to have proper JUL logging
+TODO HINT: set java.util.logging.manager= org.apache.logging.log4j.jul.LogManager to have proper JUL logging.
 
 ## License
 
