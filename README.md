@@ -4,33 +4,31 @@
 [![Build Status](https://travis-ci.org/zalando-stups/friboo.svg?branch=master)](https://travis-ci.org/zalando-stups/friboo)
 [![Coverage Status](https://coveralls.io/repos/zalando-stups/friboo/badge.svg?branch=master&service=github)](https://coveralls.io/github/zalando-stups/friboo?branch=master)
 
-A utility library to write microservices in Clojure. The library provides some components that can be used with the
-[component lifecycle framework](https://github.com/stuartsierra/component).
+**Friboo** is a lightweight utility library for writing microservices in Clojure. It provides several components that you can use with Stuart Sierra's [component lifecycle framework](https://github.com/stuartsierra/component).
 
-Friboo encourages the Swagger API-first approach where the REST API is defined as YAML.
-See the [swagger1st library](https://github.com/sarnowski/swagger1st).
-
-## Dependency
-
-    [org.zalando.stups/friboo <latest version>]
+Friboo encourages an "API First" approach based on the [Swagger specification](http://swagger.io/). This means that the REST API is defined as YAML. 
     
 ## Why Friboo?
 
-1. Friboo allows you to first define your API in a portable, language-agnostic format and implement it after (with help of [swagger1st](https://github.com/sarnowski/swagger1st)).
-2. Friboo contains ready-made components, building blocks for your applications (HTTP server, DB access layer and more, see [Helpful components](#helpful-components)).
-3. It's actually a lightweight framework, it contains the glue code for you, and there is already a recommended way of doing things.
+— Friboo allows you to first define your API in a portable, language-agnostic format, and then implement it (with the help of [swagger1st](https://github.com/sarnowski/swagger1st)).
+— It contains ready-made components/building blocks for your applications: An HTTP server, DB access layer, and more. See [Helpful components](#helpful-components)).
+3. It contains the "glue code" for you, and there is already a recommended way of doing things.
 
-## Usage
+## Getting Started
 
-### Starting a new project
+### Dependencies
+* The [swagger1st library](https://github.com/sarnowski/swagger1st)
+* [Leiningen](http://leiningen.org/)
+* Latest version of Friboo: org.zalando.stups/friboo
 
-To start a new project based on the Friboo library, use the Leiningen template:
+### Starting a New Project
+To start a new project based on Friboo, use the Leiningen template:
 
     $ lein new friboo <project>
 
-This will generate an example project containing some "foobar" logic that can serve as a starting point in your experiments.
+This will generate a sample project containing some "foobar" logic that can serve as a starting point in your experiments.
 
-A new directory with `<project>` name will be created in the current directory, containing the following files:
+A new directory with the `<project>` name will be created in the current directory, containing the following files:
 
 ```
 friboo-is-awesome
@@ -59,35 +57,31 @@ friboo-is-awesome
         └── core_test.clj
 ```
 
-* `Dockerfile` contains basic instructions for packaging the uberjar into a docker image.
+* `Dockerfile` contains basic instructions for packaging the uberjar into a Docker image.
 * `README.md` contains some pregenerated development tips for the new project.
-* `db.sh` contains handy scripts to run a PostgreSQL database in a docker container for development and integration testing.
+* `db.sh` contains handy scripts to run a PostgreSQL database in a Docker container for development and integration testing.
 * `dev/user.clj` contains functions for [Reloaded Workflow](http://thinkrelevance.com/blog/2013/06/04/clojure-workflow-reloaded).
-* `dev-config.edn` contains environment variables that will be used during reloaded workflow. (Instead of putting them into `profiles.clj`)
-* `project.clj` contains project definition with all the dependencies and some additional plugins.
-* `resources/api.yaml` contains [Swagger API definition](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md) in .yaml format.
-* `resources/db/migration/V1__initial_schema.sql` contains some DDL for the example (used by [Flyway](https://flywaydb.org/) library).
-* `resources/db/queries.sql` contains example queries for the app (used by [Yesql](https://github.com/krisajenkins/yesql) library).
-* `src` directory contains some components:
+* `dev-config.edn` contains environment variables that will be used during reloaded workflow (instead of putting them into `profiles.clj`).
+* `project.clj` contains the project definition with all dependencies and some additional plugins.
+* `resources/api.yaml` contains the [Swagger API definition](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md) in .yaml format.
+* `resources/db/migration/V1__initial_schema.sql` contains some DDL for the example (used by the [Flyway](https://flywaydb.org/) library).
+* `resources/db/queries.sql` contains sample queries for the app (used by [Yesql](https://github.com/krisajenkins/yesql) library).
+* the `src` directory contains these components:
 	* `core.clj` is the [system](https://github.com/stuartsierra/component#systems) definition.
 	* `api.clj` contains API endpoint handlers.
 	* `db.clj` contains generated functions for accessing the database.
-* `test` directory contains unit test examples using both `clojure.test` and [Midje](https://github.com/marick/Midje).
+* the `test` directory contains unit test examples using both `clojure.test` and [Midje](https://github.com/marick/Midje).
 
-### Configuration options
+### Configuration Options
 
 In `dev/user.clj`:
 
-* `:system-log-level` can be used to set the root logger to something different than `INFO`.
+* `:system-log-level` can be used to set the root logger to something other than `INFO`.
 
-## Helpful components
+### HTTP Component
 
-Friboo mainly provides some helpful utilities which are mostly presented as components.
-
-### HTTP component
-
-The HTTP component is generated on demand by the `def-http-component` macro. You can define which dependencies your
-API functions require.
+The `def-http-component` macro generates the HTTP component on demand. You can define which dependencies your
+API functions require:
 
 ```clojure
 (ns myapi
@@ -101,11 +95,11 @@ API functions require.
 ```
 
 The first argument of your function will always be a flattened map (parameter name -> parameter value) without `in`
-categorisation. This does violate the swagger spec which calls parameter names only unique in combination with your
-`in` type. You have to take care during modelling your API.
+categorisation. This does violate the Swagger spec, which calls parameter names only unique in combination with your
+`in` type. Nevertheless, be cautious when modelling your API.
 
-The HTTP component has some dependencies to other components (audit-log, metrics). It is recommended to use the
-convenience function, to create an http system:
+The HTTP component is dependent upon a few other components (audit-log, metrics), so we recommend that you use the
+convenience function to create an HTTP system:
 
 ```clojure
 (ns my-app.core
@@ -126,7 +120,7 @@ convenience function, to create an http system:
     (system/run configuration system)))
 ```
 
-#### Configuration options
+#### Configuration Options
 
 The component has to be initialized with its configuration in the `:configuration` key.
 
