@@ -13,7 +13,6 @@ Friboo encourages an "API First" approach based on the [Swagger specification](h
     [org.zalando.stups/friboo 1.9.0]
 
 ## Why Friboo?
-[** These could use a bit more "selling." Show a bit more how these options make work faster, easier, solve problems.] 
 
 - Friboo allows you to first define your API in a portable, language-agnostic format, and then implement it (with the help of [swagger1st](https://github.com/sarnowski/swagger1st)).
 - It contains ready-made components/building blocks for your applications: An HTTP server, DB access layer, an audit log (in case you have compliance requirements to follow), and more. See [Helpful components](#helpful-components)).
@@ -24,7 +23,8 @@ Friboo encourages an "API First" approach based on the [Swagger specification](h
 
 Currently Friboo is used in production by numerous services in Zalando (see list at the end of this page).
 
-However, there is always room for improvement (check the issues), Friboo is open for contributions.
+However, there is always room for improvement (check the issues), Friboo is open for contributions. For
+more details, check the [contribution guidelines](CONTRIBUTING.md).
 
 ## Getting Started
 
