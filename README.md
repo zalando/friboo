@@ -9,7 +9,7 @@
 Friboo encourages an "API First" approach based on the [Swagger specification](http://swagger.io/). As such, the REST API is defined as YAML. 
     
 ## Why Friboo?
-[** These could use a bit more "selling." Show a bit more how these options make work faster, easier, solve problems. Also, there's no explicit mention of OAuth2 here, even though it's in the tagline.] 
+[** These could use a bit more "selling." Show a bit more how these options make work faster, easier, solve problems.] 
 
 - Friboo allows you to first define your API in a portable, language-agnostic format, and then implement it (with the help of [swagger1st](https://github.com/sarnowski/swagger1st)).
 - It contains ready-made components/building blocks for your applications: An HTTP server, DB access layer, an audit log (in case you have compliance requirements to follow), and more. See [Helpful components](#helpful-components)).
@@ -17,14 +17,16 @@ Friboo encourages an "API First" approach based on the [Swagger specification](h
 - It contains the "glue code" for you, and there is already a recommended way of doing things.
 
 ## Development Status
-[**include here** + link to the contributor guidelines.] 
+
+Currently Friboo is used in production by numerous services in Zalando (see list at the end of this page).
+
+However, there is always room for improvement (check the issues), Friboo is open for contributions.
 
 ## Getting Started
 
-### Dependencies
-* The [swagger1st library](https://github.com/sarnowski/swagger1st)
+### Requirements
+
 * [Leiningen](http://leiningen.org/)
-* Latest version of Friboo: org.zalando.stups/friboo
 
 ### Starting a New Project
 To start a new project based on Friboo, use the Leiningen template:
