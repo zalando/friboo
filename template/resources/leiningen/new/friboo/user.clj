@@ -4,7 +4,7 @@
   (:require [clojure.java.javadoc :refer [javadoc]]
             [clojure.pprint :refer [pprint]]
             [clojure.reflect :refer [reflect]]
-            [clojure.edn :refer [read-string]]
+            clojure.edn
             [clojure.repl :refer [apropos dir doc find-doc pst source]]
             [clojure.tools.namespace.repl :refer [refresh refresh-all]]
             [com.stuartsierra.component :as component]
@@ -21,7 +21,7 @@
     (slurp file)))
 
 (defn load-dev-config [file]
-  (read-string (slurp-if-exists file)))
+  (clojure.edn/read-string (slurp-if-exists file)))
 
 (defn start
   "Starts the system running, sets the Var #'system."
