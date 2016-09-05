@@ -30,7 +30,7 @@
                  [com.jolbox/bonecp "0.8.0.RELEASE"]
                  [org.flywaydb/flyway-core "4.0"]
                  [org.postgresql/postgresql "9.4.1208"]
-                 [amazonica "0.3.51" :exclusions [org.apache.httpcomponents/httpclient joda-time]]
+                 [amazonica "0.3.76" :exclusions [org.apache.httpcomponents/httpclient joda-time]]
                  [org.clojure/data.codec "0.1.0"]
                  [overtone/at-at "1.2.0"]
                  [org.zalando.stups/tokens "0.9.8"]
