@@ -13,14 +13,15 @@
         token-name (or (:token-name config) :http-audit-logger)
         id         (d/digest body)
         url        (ring/conpath (:api-url config) id)]
-    (try
-      (http/put url {:body        body
-                     :oauth-token (oauth2/access-token token-name (:tokens config))
-                     :as          :json})
-      (log/info "Wrote audit event with id %s" id)
-      (catch Exception e
-        ; log to console as fallback
-        (log/error e "Could not write audit event: %s" body)))))
+    (future
+      (try
+        (http/put url {:body        body
+                       :oauth-token (oauth2/access-token token-name (:tokens config))
+                       :as          :json})
+        (log/info "Wrote audit event with id %s" id)
+        (catch Exception e
+          ; log to console as fallback
+          (log/error e "Could not write audit event: %s" body))))))
 
 (defn logger-factory
   [config tokens]

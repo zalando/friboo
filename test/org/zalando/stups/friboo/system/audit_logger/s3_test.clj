@@ -3,7 +3,6 @@
             [clojure.test :refer [deftest]]
             [amazonica.aws.s3 :as s3]
             [clj-time.format :as tf]
-            [org.zalando.stups.friboo.system.oauth2 :as oauth2]
             [org.zalando.stups.friboo.system.digest :as digest]
             [org.zalando.stups.friboo.system.audit-logger.s3 :as logger]))
 
@@ -11,7 +10,7 @@
   (facts "S3 logger"
     (let [log-fn (logger/logger-factory {:s3-bucket .bucket-name.})]
       (fact "log function calls s3/put-object with provided bucket"
-        (log-fn {}) => nil
+        (deref (log-fn {})) => nil
         (provided
           (tf/unparse irrelevant irrelevant) => "/path/to/file/"
           (digest/digest "{}") => "sha256"
@@ -24,7 +23,7 @@
       (fact "log-factory creates single-arity function"
         (log-fn irrelevant irrelevant) => (throws Exception))
       (fact "log logs to stdout if s3 call fails"
-        (log-fn {}) => nil
+        (deref (log-fn {})) => nil
         (provided
           (tf/unparse irrelevant irrelevant) => "/path/to/file/"
           (digest/digest "{}") => "sha256"

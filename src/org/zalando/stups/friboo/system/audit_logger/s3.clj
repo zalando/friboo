@@ -17,16 +17,17 @@
         content-length (count body)
         key            (time-format/unparse (:formatter config) (time/now))
         input-stream   (new ByteArrayInputStream (.getBytes body "UTF-8"))]
-    (try
-      (s3/put-object
-        :bucket-name bucket
-        :key (ring/conpath key id)
-        :metadata {:content-length content-length
-                   :content-type   "application/json"}
-        :input-stream input-stream)
-      (log/info "Wrote audit event with id %s" id)
-      (catch Exception e
-        (log/error e "Could not write audit event: %s" body)))))
+    (future
+      (try
+        (s3/put-object
+          :bucket-name bucket
+          :key (ring/conpath key id)
+          :metadata {:content-length content-length
+                     :content-type   "application/json"}
+          :input-stream input-stream)
+        (log/info "Wrote audit event with id %s" id)
+        (catch Exception e
+          (log/error e "Could not write audit event: %s" body))))))
 
 (defn logger-factory
   [config]

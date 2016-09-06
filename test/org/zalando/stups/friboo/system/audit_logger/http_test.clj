@@ -10,7 +10,7 @@
   (facts "HTTP logger"
     (let [log-fn (logger/logger-factory {:api-url "http://foo.bar"} .tokens.)]
       (fact "log function calls clj-http with provided url"
-        (log-fn {}) => nil
+        (deref (log-fn {})) => nil
         (provided
           (digest/digest "{}") => "sha256"
           (oauth2/access-token :http-audit-logger .tokens.) => .token.
@@ -20,7 +20,7 @@
       (fact "log-factory creates single-arity function"
         (log-fn irrelevant irrelevant) => (throws Exception))
       (fact "log logs to stdout if http call fails"
-        (log-fn {}) => nil
+        (deref (log-fn {})) => nil
         (provided
           (digest/digest "{}") => "sha256"
           (oauth2/access-token :http-audit-logger .tokens.) => .token.

@@ -16,6 +16,7 @@
                  [io.sarnowski/swagger1st "0.21.0"]
                  [org.zalando.stups/txdemarcator "0.7.0"]
                  [com.stuartsierra/component "0.3.1"]
+                 [digest "1.4.4"]
                  [ring "1.4.0"]
                  [org.eclipse.jetty/jetty-servlet "9.2.10.v20150310"]  ; needs to be in sync with ring dependency
                  [amalloy/ring-gzip-middleware "0.1.3"]
