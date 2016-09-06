@@ -48,7 +48,7 @@
                  [commons-codec "1.10"]
                  [com.newrelic.agent.java/newrelic-api "3.26.1"]]
 
-  :plugins [[lein-cloverage "1.0.6"]
+  :plugins [[lein-cloverage "1.0.7"]
             [lein-environ "1.0.2"]]
 
   :pom-addition [:developers
