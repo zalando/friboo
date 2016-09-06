@@ -122,6 +122,7 @@
   Lifecycle
 
   (start [component]
+    (log/warn "DEPRECATED use of audit-log component. Please one of the explicit audit-loggers instead.")
     (if (running? component)
       ; then
       (do
