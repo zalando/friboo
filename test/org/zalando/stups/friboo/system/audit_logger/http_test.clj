@@ -14,9 +14,9 @@
         (provided
           (digest/digest "{}") => "sha256"
           (oauth2/access-token :http-audit-logger .tokens.) => .token.
-          (http/put "http://foo.bar/sha256" (contains {:body        "{}"
-                                                       :oauth-token .token.
-                                                       :as          :json})) => nil))
+          (http/put "http://foo.bar/sha256" (contains {:body         "{}"
+                                                       :oauth-token  .token.
+                                                       :content-type :json})) => nil))
       (fact "log-factory creates single-arity function"
         (log-fn irrelevant irrelevant) => (throws Exception))
       (fact "log logs to stdout if http call fails"
@@ -26,6 +26,6 @@
           (oauth2/access-token :http-audit-logger .tokens.) => .token.
           ; this is what friboo.log/error ultimately expands to
           (clojure.tools.logging/log* irrelevant :error irrelevant "Could not write audit event: [\"{}\"]") => nil :times 1
-          (http/put "http://foo.bar/sha256" (contains {:body        "{}"
-                                                       :oauth-token .token.
-                                                       :as          :json})) =throws=> (new Exception "400 Bad Request"))))))
+          (http/put "http://foo.bar/sha256" (contains {:body         "{}"
+                                                       :oauth-token  .token.
+                                                       :content-type :json})) =throws=> (new Exception "400 Bad Request"))))))
