@@ -59,18 +59,23 @@
    other-components - all additional system components as key-value pairs, as one would usually pass to component/system-map
 
    Example:
-   Assuming your api component depends on on a 'db' component,
+   Assuming your api component depends on on a 'db' and a 'http-audit-logger' component,
    a function to init and run a system could look like this:
 
        (defn run
          [default-configuration]
          (let [configuration (org.zalando.stups.friboo.config/load-configuration
-                                (org.zalando.stups.friboo.system/default-http-namespaces-and :db)
+                                (org.zalando.stups.friboo.system/default-http-namespaces-and :db :auditlogger)
                                 [my-app.sql/default-db-configuration
                                  my-app.api/default-http-configuration
                                  default-configuration])
                system (org.zalando.stups.friboo.system/http-system-map configuration
-                         my-app.api/map->API [:db]
+                         my-app.api/map->API [:db :http-audit-logger]
+                         :tokens (org.zalando.stups.friboo.system.oauth2/map->OAUth2TokenRefresher {:configuration (:oauth2 configuration)
+                                                                                                    :tokens {:http-audit-logger [\"uid\"]}})
+                         :http-audit-logger (component/using
+                                              (org.zalando.stups.friboo.system.audit-logger.http/map->HTTP {:configuration (:auditlogger configuration)})
+                                              [:tokens])
                          :db (my-app.sql/map->DB {:configuration (:db configuration)}))]
 
            (system/run configuration system)))

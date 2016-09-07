@@ -15,9 +15,9 @@
         url        (ring/conpath (:api-url config) id)]
     (future
       (try
-        (http/put url {:body        body
-                       :oauth-token (oauth2/access-token token-name (:tokens config))
-                       :as          :json})
+        (http/put url {:body         body
+                       :oauth-token  (oauth2/access-token token-name (:tokens config))
+                       :content-type :json})
         (log/info "Wrote audit event with id %s" id)
         (catch Exception e
           ; log to console as fallback
@@ -29,7 +29,7 @@
                  config
                  (assoc :tokens tokens))))
 
-(defrecord Http
+(defrecord HTTP
   [configuration tokens]
   component/Lifecycle
   (start
