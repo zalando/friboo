@@ -67,7 +67,7 @@
     (do
       (log/info "Stopping DB connection pool.")
       (.close (:datasource component))
-      (assoc component :pool nil))))
+      (assoc component :datasource nil))))
 
 (defmacro def-db-component
   "Defines a new database component."
