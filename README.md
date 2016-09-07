@@ -166,10 +166,12 @@ Initialize the component with its configuration in the `:configuration` key:
 
 TODO link to jdbc documentation, pool specific configuration like min- and max-pool-size
 
-### Audit Log Component
+### Audit Log Component (Deprecated, see next section)
 
 The audit log component aims to collect logs of all modifying HTTP requests (POST, PUT, PATCH, DELETE) and 
 store them in an S3 bucket. You can then use this information to create an audit trail.
+
+**Will be removed in a future release!**
 
 #### Configuration Options
 
@@ -181,6 +183,12 @@ store them in an S3 bucket. You can then use this information to create an audit
     * to build a meaningful file name pattern, use the environment variables `APPLICATION_ID`, `APPLICATION_VERSION`
       and `INSTANCE_ID`
         * `INSTANCE_ID` defaults to random UUID
+
+### New Audit Logger Components
+
+Since the old audit log component does not suit our needs anymore, we introduce new audit log components
+that you have to explicitly call with clojure maps, which get serialized to JSON and shipped somewhere.
+Currently there are S3 and HTTP shippers.
 
 ### Metrics Component
 

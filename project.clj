@@ -16,6 +16,7 @@
                  [org.zalando/swagger1st "0.22.0-beta2" :exclusions [org.apache.httpcomponents/httpcore]]
                  [org.zalando.stups/txdemarcator "0.7.0"]
                  [com.stuartsierra/component "0.3.1"]
+                 [digest "1.4.4"]
                  [ring "1.5.0"]
                  [org.eclipse.jetty/jetty-servlet "9.2.10.v20150310"]  ; needs to be in sync with ring dependency
                  [amalloy/ring-gzip-middleware "0.1.3"]
@@ -30,7 +31,7 @@
                  [com.jolbox/bonecp "0.8.0.RELEASE" :exclusions [com.google.guava/guava]]
                  [org.flywaydb/flyway-core "4.0.3"]
                  [org.postgresql/postgresql "9.4.1209"]
-                 [amazonica "0.3.75" :exclusions [org.apache.httpcomponents/httpclient joda-time]]
+                 [amazonica "0.3.76" :exclusions [org.apache.httpcomponents/httpclient joda-time]]
                  [org.clojure/data.codec "0.1.0"]
                  [overtone/at-at "1.2.0"]
                  [org.zalando.stups/tokens "0.9.9"]
@@ -48,7 +49,7 @@
                  [commons-codec "1.10"]
                  [com.newrelic.agent.java/newrelic-api "3.31.1"]]
 
-  :plugins [[lein-cloverage "1.0.6"]
+  :plugins [[lein-cloverage "1.0.7-SNAPSHOT"]
             [lein-environ "1.0.2"]]
 
   :pom-addition [:developers
