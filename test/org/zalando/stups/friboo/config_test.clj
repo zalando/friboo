@@ -8,7 +8,8 @@
   (:import [java.nio ByteBuffer]))
 
 (deftest test-config-parse
-  (is (= {:connect-timeout "123"} (:ldap (parse-namespaces {:ldap-connect-timeout "123"} [:ldap])))))
+  (is (= {:connect-timeout "123"} (:ldap (parse-namespaces {:ldap-connect-timeout "123"} [:ldap]))))
+  (is (= {:connect-timeout "123"} (:ldap (parse-namespaces {:ldap-connect-timeout "123" :ldapfoo "bar"} [:ldap])))))
 
 (deftest test-mask
   (is (= {:a "b" :password "MASKED" :private-stuff "MASKED" :my-secret-key "MASKED"}

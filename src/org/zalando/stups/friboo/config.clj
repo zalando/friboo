@@ -54,7 +54,7 @@
     (config namespace)
     (into {} (map (fn [[k v]] [(strip (name namespace) k) v])
                   (filter (fn [[k v]]
-                            (.startsWith (name k) (str (name namespace) "")))
+                            (.startsWith (name k) (str (name namespace) "-")))
                           config)))))
 
 (defn parse-namespaces [config namespaces]
