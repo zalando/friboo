@@ -13,9 +13,9 @@
 ; limitations under the License.
 
 (ns org.zalando.stups.friboo.config
-  (:require [environ.core :refer [env]]
+  (:require [environ.core :as environ]
             [org.zalando.stups.friboo.log :as log]
-            [clojure.string :refer [replace-first]]
+            [clojure.string :as str]
             [amazonica.aws.kms :as kms]
             [clojure.data.codec.base64 :as b64]))
 
@@ -23,8 +23,8 @@
   "If x is a string, returns true if nil or empty. Else returns true if x is nil"
   [x]
   (if (string? x)
-      (empty? x)
-      (nil? x)))
+    (empty? x)
+    (nil? x)))
 
 (defn require-config
   "Helper function to fail of a configuration value is missing."
@@ -38,16 +38,16 @@
 
 (defn- is-sensitive-key [k]
   (let [kname (name k)]
-       (or (.contains kname "pass")
-           (.contains kname "private")
-           (.contains kname "secret"))))
+    (or (.contains kname "pass")
+        (.contains kname "private")
+        (.contains kname "secret"))))
 
 (defn mask [config]
   "Mask sensitive information such as passwords"
   (into {} (for [[k v] config] [k (if (is-sensitive-key k) "MASKED" v)])))
 
 (defn- strip [namespace k]
-  (keyword (replace-first (name k) (str (name namespace) "-") "")))
+  (keyword (str/replace-first (name k) (str (name namespace) "-") "")))
 
 (defn- namespaced [config namespace]
   (if (contains? config namespace)
@@ -114,15 +114,34 @@
                     (to-real-number))])))
 
 (defn load-configuration
-  "Loads configuration options from various places."
-  [namespaces default-configurations]
-  (let [default-configuration (apply merge default-configurations)
-        config (parse-namespaces
-                 (decrypt
-                   (merge default-configuration env))
-                 (conj namespaces :system))
-        default-tokeninfo (get-in config [:tokeninfo :url])]
-    ; if there is no tokeninfo-url in http namespace,
-    ; overwrite it with default tokeninfo
-    (assoc-in config [:http :tokeninfo-url] (or (get-in config [:http :tokeninfo-url])
-                                                default-tokeninfo))))
+  "Loads the configuration from different sources and transforms it.
+
+  Takes default configurations, merges them in the order they are provided:
+  [{:http-port 8080 :tokeninfo-url \"bar\"}, {:tokeninfo-url \"foo\"}] -> {:http-port 8080 :tokeninfo-url \"foo\"}
+  Then merges the environment variables into it:
+  {:http-port 8080 :tokeninfo-url \"foo\"}, {:http-port 9090} -> {:http-port 9090 :tokeninfo-url \"foo\"}
+  Then optionally renames some keys, but only if the new key does not exist:
+  {:http-tokeninfo-url :tokeninfo-url}, {:http-port 9090 :tokeninfo-url \"foo\"}
+    -> {:http-port 9090 :tokeninfo-url \"foo\" :http-tokeninfo-url \"foo\"}
+  Then filters out by provided namespace prefixes:
+  [:http], {:http-port 9090 :tokeninfo-url \"foo\" :http-tokeninfo-url \"foo\"}
+    -> {:http-port 9090 :http-tokeninfo-url \"foo\"}
+  Then extracts namespaces:
+  {:http-port 9090 :http-tokeninfo-url \"foo\"} -> {:http {:port 9090 :tokeninfo-url \"foo\""
+
+  ;; TODO in version 2 use only one default configuration, let the caller call merge
+  ([namespaces default-configurations]
+   (load-configuration namespaces
+                       ;; TODO in version 2 don't use default demapping, move to a separate Zalando-specific namespace
+                       {:http-tokeninfo-url     :tokeninfo-url
+                        :oauth2-credentials-dir :credentials-dir}
+                       default-configurations))
+
+  ([namespaces globals-mapping default-configurations]
+   (let [env-with-defaults                (apply merge (conj default-configurations environ/env))
+         remappings                       (into {} (for [[new-key old-key] globals-mapping
+                                                         :let [old-value (get env-with-defaults old-key)]
+                                                         :when old-value]
+                                                     [new-key old-value]))
+         env-with-remappings-and-defaults (merge remappings env-with-defaults)]
+     (parse-namespaces (decrypt env-with-remappings-and-defaults) (conj namespaces :system)))))
