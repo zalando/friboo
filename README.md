@@ -10,7 +10,7 @@ Friboo encourages an "API First" approach based on the [Swagger specification](h
 
 ## Leiningen dependency
 
-    [org.zalando.stups/friboo 1.9.0]
+    [org.zalando.stups/friboo 1.10.0]
 
 ## Why Friboo?
 
