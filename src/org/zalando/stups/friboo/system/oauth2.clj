@@ -15,15 +15,10 @@
 (ns org.zalando.stups.friboo.system.oauth2
   (:require [org.zalando.stups.friboo.config :refer [require-config]]
             [com.stuartsierra.component :as component]
-            [org.zalando.stups.friboo.log :as log]
-            [io.sarnowski.swagger1st.util.api :as api]
-            [clj-http.client :as client]
-            [clojure.core.cache :as cache]
-            [clojure.core.memoize :as memo]
-            [org.zalando.stups.friboo.log :as log]
             [cheshire.core :as json]
-            [clojure.java.io :as io])
-  (:import (org.zalando.stups.tokens Tokens ClientCredentialsProvider ClientCredentials UserCredentialsProvider UserCredentials CredentialsUnavailableException)
+            [clojure.java.io :as io]
+            [clojure.string :as str])
+  (:import (org.zalando.stups.tokens Tokens ClientCredentialsProvider ClientCredentials UserCredentialsProvider UserCredentials CredentialsUnavailableException AccessTokensBuilder AccessTokens)
            (java.net URI)))
 
 (defn make-client-credentials-provider [file]
@@ -42,37 +37,71 @@
           (getUsername [_] application_username)
           (getPassword [_] application_password))))))
 
+(defn AccessTokensBuilder-start
+  "Just for mocking out."
+  [^AccessTokensBuilder tokens-builder]
+  (.start tokens-builder))
+
+(defn start-refresher
+  "Sets up and starts Tokens/AccessTokens object that refreshes tokens in the background."
+  [access-token-url credentials-dir tokens]
+  ;; Provide custom implementations to prevent the Tokens library from using System.getenv("CREDENTIALS_DIR")
+  (let [tokens-builder (-> (Tokens/createAccessTokensWithUri (URI. access-token-url))
+                           (.usingClientCredentialsProvider
+                             (make-client-credentials-provider (io/file credentials-dir "client.json")))
+                           (.usingUserCredentialsProvider
+                             (make-user-credentials-provider (io/file credentials-dir "user.json"))))]
+
+    ; register all scopes
+    (doseq [[token-id scopes] tokens]
+      (let [token (.manageToken tokens-builder token-id)]
+        (doseq [scope scopes]
+          (.addScope token scope))
+        (.done token)))
+
+    (AccessTokensBuilder-start tokens-builder)))
+
+(defn parse-static-tokens
+  "Takes a string like 'foo=nfjhsjaieu2023rbfl,bar=q923r023bh2i4943'
+  and parses it to {:foo \"nfjhsjaieu2023rbfl\" :bar \"q923r023bh2i4943\"}"
+  [access-tokens-str]
+  (into {} (for [name=value (str/split access-tokens-str #",")
+                 :let [[n v] (str/split name=value #"=" 2)]
+                 :when v]
+             [(keyword n) v])))
+
 ; configuration has to be given, contains links to IAM solution and timings
 ; tokens has to be given, contains map of tokenids to list of required scopes
 ; token-storage will be an atom containing the current access token
-(defrecord OAuth2TokenRefresher [configuration tokens token-storage]
+(defrecord OAuth2TokenRefresher [
+                                 ;; Input parameters
+                                 configuration
+                                 tokens
+                                 ;; Set by start
+                                 token-storage
+                                 static-tokens]
   component/Lifecycle
 
   (start [this]
-    (let [access-token-url (require-config configuration :access-token-url)
-          credentials-dir  (require-config configuration :credentials-dir)
-          ;; Provide custom implementations to prevent the library from using System.getenv("CREDENTIALS_DIR")
-          token-builder    (-> (Tokens/createAccessTokensWithUri (URI. access-token-url))
-                               (.usingClientCredentialsProvider
-                                 (make-client-credentials-provider (io/file credentials-dir "client.json")))
-                               (.usingUserCredentialsProvider
-                                 (make-user-credentials-provider (io/file credentials-dir "user.json"))))]
-
-      ; register all scopes
-      (doseq [[token-id scopes] tokens]
-        (let [token (.manageToken token-builder token-id)]
-          (doseq [scope scopes]
-            (.addScope token scope))
-          (.done token)))
-
-      (assoc this :token-storage (.start token-builder))))
+    (let [{:keys [access-token-url credentials-dir access-tokens]} configuration]
+      (merge
+        this
+        (when (and access-token-url credentials-dir (seq tokens))
+          {:token-storage (start-refresher access-token-url credentials-dir tokens)})
+        ;; Not relying on AccessTokenRefresher/initializeFixedTokensFromEnvironment,
+        ;; because it reads OAUTH2_ACCESS_TOKENS env var directly, not compatible with reloaded workflow.
+        (when access-tokens
+          {:static-tokens (parse-static-tokens access-tokens)}))))
 
   (stop [this]
-    (.stop token-storage)
-    (assoc this :access-tokens nil)))
+    (when token-storage
+      (.stop token-storage))
+    (assoc this :token-storage nil)))
 
 (defn access-token
   "Returns the valid access token of the given ID."
-  [token-id ^OAuth2TokenRefresher refresher]
-  (let [token-storage (:token-storage refresher)]
-    (.get token-storage token-id)))
+  [token-id {:keys [token-storage static-tokens]}]
+  (if-let [static-token (get static-tokens token-id)]
+    static-token
+    (when token-storage
+      (.get token-storage token-id))))
