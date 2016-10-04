@@ -18,7 +18,7 @@
             [cheshire.core :as json]
             [clojure.java.io :as io]
             [clojure.string :as str])
-  (:import (org.zalando.stups.tokens Tokens ClientCredentialsProvider ClientCredentials UserCredentialsProvider UserCredentials CredentialsUnavailableException AccessTokensBuilder AccessTokens)
+  (:import (org.zalando.stups.tokens Tokens ClientCredentialsProvider ClientCredentials UserCredentialsProvider UserCredentials CredentialsUnavailableException AccessTokensBuilder AccessTokens AccessTokenUnavailableException)
            (java.net URI)))
 
 (defn make-client-credentials-provider [file]
@@ -101,7 +101,9 @@
 (defn access-token
   "Returns the valid access token of the given ID."
   [token-id {:keys [token-storage static-tokens]}]
-  (if-let [static-token (get static-tokens token-id)]
-    static-token
-    (when token-storage
-      (.get token-storage token-id))))
+  (or
+    (if-let [static-token (get static-tokens token-id)]
+      static-token
+      (when token-storage
+        (.get token-storage token-id)))
+    (throw (AccessTokenUnavailableException. "Token was not registered."))))

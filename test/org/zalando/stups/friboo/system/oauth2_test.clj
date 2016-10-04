@@ -3,7 +3,7 @@
             [midje.sweet :refer :all]
             [org.zalando.stups.friboo.system.oauth2 :refer :all]
             [com.stuartsierra.component :as component])
-  (:import (org.zalando.stups.tokens AccessTokens)))
+  (:import (org.zalando.stups.tokens AccessTokens AccessTokenUnavailableException)))
 
 (defn create-access-tokens-mock [token-map]
   (reify AccessTokens
@@ -30,6 +30,8 @@
           (access-token :bar refresher) => "real-bar")
         (fact "static token takes precedence"
           (access-token :baz refresher) => "fake-baz")
+        (fact "if the token was not registered, throws an exception"
+          (access-token :nonono refresher) => (throws AccessTokenUnavailableException))
         (fact "stopping"
           (component/stop refresher) => (contains {:token-storage nil})))))
 

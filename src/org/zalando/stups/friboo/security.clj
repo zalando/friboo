@@ -38,7 +38,7 @@
   (api/error 403 "Forbidden"))
 
 (defn allow-all
-  "Returns a swagger1st security hander that allows everything."
+  "Returns a swagger1st security handler that allows everything."
   []
   (fn [request definition requirements]
     request))
