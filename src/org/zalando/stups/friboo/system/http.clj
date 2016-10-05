@@ -23,7 +23,7 @@
             [org.zalando.stups.friboo.config :refer [require-config]]
             [org.zalando.stups.friboo.system.metrics :refer [collect-swagger1st-zmon-metrics]]
             [org.zalando.stups.friboo.system.audit-log :refer [collect-audit-logs]]
-            [org.zalando.stups.friboo.system.oauth2 :as oauth2]
+            [org.zalando.stups.friboo.security :as security]
             [ring.adapter.jetty :as jetty]
             [ring.util.response :as r]
             [ring.middleware.resource :refer [wrap-resource]]
@@ -112,7 +112,7 @@
   "Map alternate Authorization headers to standard OAuth2 'Bearer' auth"
   [handler]
   (fn [request]
-    (let [authorization (get-in request [:headers "authorization"])
+    (let [authorization     (get-in request [:headers "authorization"])
           new-authorization (map-authorization-header authorization)]
       (if new-authorization
         (handler (replace-auth request new-authorization))
@@ -130,7 +130,7 @@
     (try
       (next-handler request)
       (catch HystrixRuntimeException e
-        (let [reason (-> e .getCause .toString)
+        (let [reason       (-> e .getCause .toString)
               failure-type (str (.getFailureType e))]
           (log/warn (str "Hystrix: " (.getMessage e) " %s occurred, because %s") failure-type reason)
           (api/throw-error 503 (str "A dependency is unavailable: " (.getMessage e))))))))
@@ -178,11 +178,11 @@
                                          (if (:tokeninfo-url configuration)
                                            (do
                                              (log/info "Checking access tokens against %s." (:tokeninfo-url configuration))
-                                             (oauth2/oauth-2.0 configuration oauth2/check-corresponding-attributes
-                                                               :resolver-fn oauth2/resolve-access-token))
+                                             (security/oauth2 configuration security/check-corresponding-attributes
+                                                               :resolver-fn security/resolve-access-token))
                                            (do
                                              (log/warn "No token info URL configured; NOT ENFORCING SECURITY!")
-                                             (oauth2/allow-all)))})
+                                             (security/allow-all)))})
                         (s1st/ring enrich-log-lines)        ; now we also know the user, replace request info
                         (s1st/ring add-config-to-request configuration)
                         (s1st/ring collect-audit-logs audit-logger)

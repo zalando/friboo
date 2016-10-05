@@ -13,18 +13,17 @@
 ; limitations under the License.
 
 (ns org.zalando.stups.friboo.config
-  (:require [environ.core :refer [env]]
+  (:require [environ.core :as environ]
             [org.zalando.stups.friboo.log :as log]
-            [clojure.string :refer [replace-first]]
-            [amazonica.aws.kms :as kms]
-            [clojure.data.codec.base64 :as b64]))
+            [clojure.string :as str]
+            [org.zalando.stups.friboo.config-decrypt :as decrypt]))
 
 (defn- nil-or-empty?
   "If x is a string, returns true if nil or empty. Else returns true if x is nil"
   [x]
   (if (string? x)
-      (empty? x)
-      (nil? x)))
+    (empty? x)
+    (nil? x)))
 
 (defn require-config
   "Helper function to fail of a configuration value is missing."
@@ -34,27 +33,25 @@
       (throw (IllegalArgumentException. (str "Configuration " key " is required but is missing.")))
       value)))
 
-(def aws-kms-prefix "aws:kms:")
-
 (defn- is-sensitive-key [k]
   (let [kname (name k)]
-       (or (.contains kname "pass")
-           (.contains kname "private")
-           (.contains kname "secret"))))
+    (or (.contains kname "pass")
+        (.contains kname "private")
+        (.contains kname "secret"))))
 
 (defn mask [config]
   "Mask sensitive information such as passwords"
   (into {} (for [[k v] config] [k (if (is-sensitive-key k) "MASKED" v)])))
 
 (defn- strip [namespace k]
-  (keyword (replace-first (name k) (str (name namespace) "-") "")))
+  (keyword (str/replace-first (name k) (str (name namespace) "-") "")))
 
 (defn- namespaced [config namespace]
   (if (contains? config namespace)
     (config namespace)
     (into {} (map (fn [[k v]] [(strip (name namespace) k) v])
                   (filter (fn [[k v]]
-                            (.startsWith (name k) (str (name namespace) "")))
+                            (.startsWith (name k) (str (name namespace) "-")))
                           config)))))
 
 (defn parse-namespaces [config namespaces]
@@ -63,66 +60,40 @@
       (log/debug "Destructured %s into %s." namespace (mask namespaced-config)))
     namespaced-configs))
 
-(defn- get-kms-ciphertext-blob [s]
-  "Convert config string to ByteBuffer"
-  (-> s
-      (clojure.string/replace-first aws-kms-prefix "")
-      .getBytes
-      b64/decode
-      java.nio.ByteBuffer/wrap))
+(defn remap-keys [input mapping]
+  (merge
+    (into {} (for [[new-key old-key] mapping
+                   :let [old-value (get input old-key)]
+                   :when old-value]
+               [new-key old-value]))
+    input))
 
-(defn decrypt-value-with-aws-kms [value aws-region-id]
-  "Use AWS Key Management Service to decrypt the given string (must be encoded as Base64)"
-  (->> value
-       get-kms-ciphertext-blob
-       (#(kms/decrypt {:endpoint aws-region-id} :ciphertext-blob %))
-       :plaintext
-       .array
-       (map char)
-       (apply str)))
+(defn load-config
+  "Loads the configuration from different sources and transforms it.
 
-(defn- decrypt-value [key value aws-region-id]
-  "Decrypt a single value, returns original value if it's not encrypted"
-  (if (and (string? value) (.startsWith value aws-kms-prefix))
-    (do
-      (log/info "Decrypting configuration %s." key)
-      (decrypt-value-with-aws-kms value aws-region-id))
-    value))
+  Merges default config with environment variables:
+  {:http-port 8080 :tokeninfo-url \"foo\"}, {:http-port 9090} -> {:http-port 9090 :tokeninfo-url \"foo\"}
+  Then optionally renames some keys, but only if the new key does not exist:
+  {:http-tokeninfo-url :tokeninfo-url}, {:http-port 9090 :tokeninfo-url \"foo\"}
+    -> {:http-port 9090 :tokeninfo-url \"foo\" :http-tokeninfo-url \"foo\"}
+  Then filters out by provided namespace prefixes:
+  [:http], {:http-port 9090 :tokeninfo-url \"foo\" :http-tokeninfo-url \"foo\"}
+    -> {:http-port 9090 :http-tokeninfo-url \"foo\"}
+  Then extracts namespaces:
+  {:http-port 9090 :http-tokeninfo-url \"foo\"} -> {:http {:port 9090 :tokeninfo-url \"foo\"}}"
 
-(defn- to-real-boolean
-  "Maps a boolean string to boolean or returns the string."
-  [value]
-  (if (string? value)
-    (case value
-      "true" true
-      "false" false
-      value)
-    value))
-
-(defn- to-real-number
-  "Maps a number string to long or returns the string."
-  [value]
-  (if (and (string? value) (not (nil? (re-matches #"^[0-9]+$" value))))
-    (Long/parseLong value)
-    value))
-
-(defn decrypt [config]
-  "Decrypt all values in a config map"
-  (into {} (for [[k v] config]
-             [k (-> (decrypt-value k v (:aws-region-id config))
-                    (to-real-boolean)
-                    (to-real-number))])))
+  [default-config namespaces & [{:keys [mapping]}]]
+  (-> (merge default-config environ/env)
+      (remap-keys mapping)
+      (parse-namespaces (conj namespaces :system))))
 
 (defn load-configuration
-  "Loads configuration options from various places."
+  "Loads configuration with Zalando-specific tweaks (remapping and decryption) in place."
+  ;; TODO move this function into the Zalando-specific library
   [namespaces default-configurations]
-  (let [default-configuration (apply merge default-configurations)
-        config (parse-namespaces
-                 (decrypt
-                   (merge default-configuration env))
-                 (conj namespaces :system))
-        default-tokeninfo (get-in config [:tokeninfo :url])]
-    ; if there is no tokeninfo-url in http namespace,
-    ; overwrite it with default tokeninfo
-    (assoc-in config [:http :tokeninfo-url] (or (get-in config [:http :tokeninfo-url])
-                                                default-tokeninfo))))
+  (decrypt/decrypt-config
+    (load-config
+      (apply merge default-configurations)
+      namespaces
+      {:mapping {:http-tokeninfo-url     :tokeninfo-url
+                 :oauth2-credentials-dir :credentials-dir}})))
