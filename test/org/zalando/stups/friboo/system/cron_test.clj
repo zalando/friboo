@@ -10,9 +10,8 @@
 (deftest test-cron-component-lifecycle
   ;; Here we make sure that the component is started and stopped properly.
   (let [state (promise)
-        cron-component (map->TestCron {:state state})]
+        cron-component (component/start (map->TestCron {:state state}))]
+    (is (= 42 (deref state 500 :not-delivered)))
     (-> cron-component
-        component/start
         component/stop
-        component/stop) ; stopping twice shouldn't break anything
-    (is (= 42 (deref state 500 :not-delivered)))))
+        component/stop))) ; stopping twice shouldn't break anything
