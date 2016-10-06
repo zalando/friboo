@@ -92,19 +92,19 @@
                  :httpd   (jetty/run-jetty handler (merge configuration {:join? false}))})))
 
 (defn stop-component
-  "Stops the Http2 component."
+  "Stops the Http component."
   [{:as this :keys [handler httpd]}]
   (if-not handler
     (do
-      (log/debug "Skipping stop of Http2 because it's not running.")
+      (log/debug "Skipping stop of Http because it's not running.")
       this)
     (do
-      (log/info "Stopping Http2.")
+      (log/info "Stopping Http.")
       (when httpd
         (.stop httpd))
       (dissoc this :handler :httpd))))
 
-(defrecord Http [;; parameters (filled in by make-http2 on creation)
+(defrecord Http [;; parameters (filled in by make-http on creation)
                   api-resource
                   configuration
                   security-handlers
@@ -267,7 +267,7 @@
                            :executor   {}})
 
 (defn make-http
-  "Creates Http2 component using mostly default parameters."
+  "Creates Http component using mostly default parameters."
   [api-resource configuration]
   (map->Http {:api-resource   api-resource
                :configuration configuration
