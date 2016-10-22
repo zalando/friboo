@@ -50,7 +50,8 @@
                  [com.newrelic.agent.java/newrelic-api "3.31.1"]]
 
   :plugins [[lein-cloverage "1.0.7-SNAPSHOT"]
-            [lein-environ "1.0.2"]]
+            [lein-environ "1.0.2"]
+            [lein-marginalia "0.9.0"]]
 
   :pom-addition [:developers
                  [:developer {:id "sarnowski"}
