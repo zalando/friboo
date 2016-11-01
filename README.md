@@ -190,6 +190,52 @@ Since the old audit log component does not suit our needs anymore, we introduce 
 that you have to explicitly call with clojure maps, which get serialized to JSON and shipped somewhere.
 Currently there are S3 and HTTP shippers.
 
+#### HTTP
+
+The HTTP audit logger provides a log function that uploads events via HTTP(S),
+accessible through `(:log-fn your-audit-component)`. The function accepts a
+single argument, which should be a map representing the event you want to log,
+and returns nil.
+
+Set the `:api-url` key in the configuration to the endpoint of the Audit API
+that accepts events, and configure the name of the token to use for
+identification through `:token-name`, e.g.
+
+```clojure
+(audit/map->HTTP {:configuration {:api-url "https://audit.example.org/events"
+                                  :token-name :auditlog}})
+```
+
+Note that the HTTP audit logger needs access to the OAuth2 token refresher (see
+next section), configured with a token of the name specified above.
+
+### OAuth2 token refresher component
+
+The token refresher provides other componens with OAuth2 access tokens by means
+of the function `org.zalando.stups.friboo.system.oauth2/access-token`, which
+takes the name of the token to obtain (as a keyword) and an instance of the
+token refresher component.
+
+The refresher component generates tokens from one of two sources:
+
+1. You can configure static tokens by setting `:access-tokens` in the
+   configuration to a string of the format
+   `"my-first-token=abc,my-second-token=def"`. Such tokens will be accessible
+   through their keywordized names.
+2. The refresher can query an OAuth2 for tokens. Set `:access-token-url` to the
+   corresponding API URL and `:credentials-dir` to a directory in the local file
+   system that contains credentials to access the API.
+
+In addition to the usual configuration, pass the token refresher component a map
+from token names to associated scopes:
+
+```clojure
+(oauth2/map->OAuth2TokenRefresher {:configuration {:access-token-url "https://get.my.token/"
+                                                   :credentials-dir "/secret/api-credentials"}
+                                   :tokens {:some-service ["uid"]
+                                            :another-service ["uid" "launchmissiles"]}})
+```
+
 ### Metrics Component
 
 The metrics component initializes a [Dropwizard MetricsRegistry](http://metrics.dropwizard.io) to measure
