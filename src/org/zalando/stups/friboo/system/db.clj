@@ -29,8 +29,8 @@
   [configuration jdbc-url]
   (let [properties (Properties.)]
     (doseq [property configuration]
-      (when (.contains (name (key property)) "flyway.")
-        (.setProperty properties (name (key property)) (val property))))
+      (when (.contains (name (key property)) "flyway")
+        (.setProperty properties (clojure.string/replace (name (key property)) "-" ".") (val property))))
     (.setProperty properties "flyway.driver" "")
     (.setProperty properties "flyway.url" jdbc-url)
     (.setProperty properties "flyway.user" (require-config configuration :user))

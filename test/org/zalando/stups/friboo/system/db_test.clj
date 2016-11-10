@@ -40,13 +40,15 @@
     (is (= 1 @close-count))))
 
 (deftest test-load-flyway-configuration
-  (let [configuration {:user         "user"
-                       :password     "password"
-                       :flyway.table "tablename"}
+  (let [configuration {:user           "user"
+                       :password       "password"
+                       :flyway.table   "tablename"
+                       :flyway-schemas "schemas"}
         jdbc-url "jdbc-url"
         properties (load-flyway-configuration configuration jdbc-url)]
     (is (= properties {"flyway.password" "password"
                        "flyway.url"      "jdbc-url"
                        "flyway.driver"   ""
                        "flyway.user"     "user"
-                       "flyway.table"    "tablename"}))))
+                       "flyway.table"    "tablename"
+                       "flyway.schemas"  "schemas"}))))
