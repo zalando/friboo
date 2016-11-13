@@ -1,0 +1,101 @@
+swagger: '2.0'
+
+# basic meta information
+info:
+  title: friboo-frontend
+  version: '1.0'
+  description: Very nice friboo-frontend
+
+externalDocs:
+  description: External docs
+  url: http://example.github.io/
+
+# technical configuration
+basePath: /
+produces:
+- application/json
+consumes:
+- application/json
+
+security:
+  - oauth2: [uid]
+
+paths:
+
+  '/':
+    get:
+      summary: Application root
+      operationId: org.zalando.stups.friboo.system.http/redirect-to-swagger-ui
+      responses:
+        default:
+          description: "Redirects to /ui/"
+
+  '/info':
+    get:
+      summary: Gives info
+      description: Gives info
+      operationId: "org.zalando.stups.friboo.system.new-http-test/get-info"
+      responses:
+        200:
+          description: Info is given
+        default:
+          $ref: '#/responses/Error'
+
+  '/foo/{foo_id}':
+    put:
+      summary: Updates a foo
+      description: Updates a foo
+      operationId: "org.zalando.stups.friboo.system.new-http-test/put-foo"
+      parameters:
+      - name: foo_id
+        in: path
+        type: string
+      - name: page
+        in: query
+        type: integer
+      - name: foo
+        in: body
+        schema:
+          type: object
+          properties:
+            foo_text:
+              type: string
+      responses:
+        201:
+          description: Foo is updated
+        default:
+          $ref: '#/responses/Error'
+
+#  '/error':
+#    get:
+#      summary: Throws an error
+#      description: Throws an error
+#      operationId: "org.zalando.stups.friboo.system.new-http-test/get-error"
+#      responses:
+#        200:
+#          description: Never happens
+#        default:
+#          $ref: '#/responses/Error'
+
+responses:
+  Error:
+    description: An error occured.
+    schema:
+      $ref: '#/definitions/Error'
+
+definitions:
+  Error:
+    type: object
+    properties:
+      message:
+        type: string
+    example:
+      message: Internal Server Error
+
+securityDefinitions:
+  oauth2:
+    type: oauth2
+    flow: implicit
+    authorizationUrl: https://example.com/oauth2/dialog
+    scopes:
+      uid: Unique identifier of the user accessing the service.

@@ -89,6 +89,7 @@
                   :mgmt-http (component/using (map->MgmtHTTP {:configuration (:mgmt-http configuration)}) [:metrics])]
                  other-components)))
 
+;; This is mostly about setting logging levels, can better be done by a separate function
 (defn run
   "Boots a whole new system."
   [{system-config :system http-config :http} system]
@@ -104,9 +105,11 @@
       (log/warn "Setting log level to %s." log-level)
       (set-log-level! log-level)))
 
+  ;; TODO move this somewhere else, it's zalando specific
   (when-not (:magnificent-url http-config)
     (log/warn "No configuration of magnificent, auth/get-auth will always return true!"))
 
+  ;; TODO add exception handling and cleanup here (stop all the components)
   (let [system (component/start system)]
 
     (log/info "System started.")

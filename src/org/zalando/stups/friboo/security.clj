@@ -119,6 +119,7 @@
       (log/warn "No token info URL configured; NOT ENFORCING SECURITY!")
       (allow-all))))
 
+;; Security handler types according to http://swagger.io/specification/#securitySchemeObject
 (def allow-all-handlers {"oauth2" (allow-all)
                          "basic"  (allow-all)
                          "apiKey" (allow-all)})

@@ -27,7 +27,8 @@
             [ring.middleware.gzip :as gzip])
   (:import (com.stuartsierra.component Lifecycle)
            (com.netflix.hystrix.exception HystrixRuntimeException)
-           (org.zalando.stups.txdemarcator Transactions)))
+           (org.zalando.stups.txdemarcator Transactions)
+           (clojure.lang ExceptionInfo)))
 
 (defn merged-parameters
   "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
@@ -50,7 +51,7 @@
   [coll]
   (apply concat coll))
 
-(defn with-flattened-options-map
+(defn- with-flattened-options-map
   "If f is defined like this:
 
   `(defn f [first-arg & {:keys [a b] :as opts}] ... )`
@@ -70,22 +71,30 @@
   (log/info "Starting HTTP daemon for API %s" api-resource)
   (when (:handler this)
     (throw (ex-info "Component already started, aborting." {})))
-  (let [handler (-> (apply s1st/context :yaml-cp api-resource (flatten1 {:context s1st-options}))
+  ;; Refer to default-middlewares object below for middleware lists
+  ;; Create context from the YAML definition on the classpath, optionally provide validation flag
+  (let [handler (-> (apply s1st/context :yaml-cp api-resource (flatten1 (:context s1st-options)))
+                    ;; Some middleware will need to access the component later
                     (assoc :component this)
-
+                    ;; User can provide additional handlers to be executed before discoverer
                     (middleware-chain (:before-discoverer middlewares))
+                    ;; Enables paths for API discovery, like /ui, /swagger.json and /.well-known/schema-discovery
                     (with-flattened-options-map s1st/discoverer (:discoverer s1st-options))
-
+                    ;; User can provide additional handlers to be executed before mapper
                     (middleware-chain (:before-mapper middlewares))
+                    ;; Given a path, figures out the spec part describing it
                     (s1st/mapper)
-
-                    (middleware-chain (:before-parser middlewares))
-                    (with-flattened-options-map s1st/parser (:parser s1st-options))
-
+                    ;; User can provide additional handlers to be executed before protector
                     (middleware-chain (:before-protector middlewares))
+                    ;; Enforces security according to the settings, depends on the spec from mapper
                     (s1st/protector (merge security/allow-all-handlers security-handlers))
-
+                    ;; User can provide additional handlers to be executed before parser
+                    (middleware-chain (:before-parser middlewares))
+                    ;; Extracts parameter values from path, query and body of the request
+                    (with-flattened-options-map s1st/parser (:parser s1st-options))
+                    ;; User can provide additional handlers to be executed before executor
                     (middleware-chain (:before-executor middlewares))
+                    ;; Calls the handler function for the request. Customizable through :resolver
                     (with-flattened-options-map s1st/executor (merge {:resolver (make-resolver-fn controller)}
                                                                      (:executor s1st-options))))]
     (merge this {:handler handler
@@ -105,23 +114,21 @@
       (dissoc this :handler :httpd))))
 
 (defrecord Http [;; parameters (filled in by make-http on creation)
-                  api-resource
-                  configuration
-                  security-handlers
-                  middlewares
-                  s1st-options
-                  ;; dependencies (filled in by the component library before starting)
-                  controller
-                  metrics
-                  audit-log
-                  ;; runtime vals (filled in by start-component)
-                  httpd
-                  handler]
+                 api-resource
+                 configuration
+                 security-handlers
+                 middlewares
+                 s1st-options
+                 ;; dependencies (filled in by the component library before starting)
+                 controller
+                 metrics
+                 audit-log
+                 ;; runtime vals (filled in by start-component)
+                 httpd
+                 handler]
   Lifecycle
-
   (start [this]
     (start-component this))
-
   (stop [this]
     (stop-component this)))
 
@@ -173,7 +180,7 @@
           (r/status 200))
       (handler request))))
 
-(defn parse-basic-auth
+(defn- parse-basic-auth
   "Parse HTTP Basic Authorization header"
   [authorization]
   (-> authorization
@@ -215,22 +222,21 @@
   (fn [request]
     (next-handler (assoc request :configuration configuration))))
 
-(defn convert-hystrix-exceptions
+(defn convert-exceptions
   [next-handler]
   (fn [request]
     (try
       (next-handler request)
+      ;; Hystrix exceptions as 503
       (catch HystrixRuntimeException e
         (let [reason       (-> e .getCause .toString)
               failure-type (str (.getFailureType e))]
           (log/warn (str "Hystrix: " (.getMessage e) " %s occurred, because %s") failure-type reason)
-          (api/throw-error 503 (str "A dependency is unavailable: " (.getMessage e))))))))
-
-(defn wrap-exceptions
-  [next-handler]
-  (fn [request]
-    (try
-      (next-handler request)
+          (api/throw-error 503 (str "A dependency is unavailable: " (.getMessage e)))))
+      ;; ex-info pass-through, will be caught inside parser
+      (catch ExceptionInfo e
+        (throw e))
+      ;; Other exceptions as 500
       (catch Exception e
         (log/error e "Unhandled exception.")
         (api/throw-error 500 "Internal server error" (str e))))))
@@ -253,23 +259,35 @@
                        #(s1st/ring % s1stapi/surpress-favicon-requests)
                        #(s1st/ring % health-endpoint)]
    :before-mapper     []
+   :before-protector  []
    :before-parser     [#(s1st/ring % mark-transaction)]
-   :before-protector  [#(s1st/ring % wrap-exceptions)
-                       #(s1st/ring % convert-hystrix-exceptions)]
-   :before-executor   [;; now we also know the user, replace request info
+   :before-executor   [;; Convert exceptions to ex-info so that parser creates nice 5xx responses
+                       #(s1st/ring % convert-exceptions)
+                       ;; now we also know the user, replace request info
                        #(s1st/ring % enrich-log-lines)
                        #(s1st/ring % wrap-default-content-type "application/json")]})
 
-;; Just for documentation purposes
-(def default-s1st-options {:context    {}
+;; For documentation
+(def default-s1st-options {;; It's possible to disable validation of the spec
+                           ;; :context {:validate? true}
+                           :context    {}
+                           ;; The following parts are customizable:
+                           ;; :discoverer {:discovery-path  "/.well-known/schema-discovery"
+                           ;;              :definition-path "/swagger.json"
+                           ;;              :ui-path         "/ui/"
+                           ;;              :overwrite-host? true }
                            :discoverer {}
+                           ;; No available options for parser, this is here for future
                            :parser     {}
+                           ;; It's possible customize how exactly handler functions should be called
+                           ;; :executor {:resolver io.sarnowski.swagger1st.executor/operationId-to-function}
                            :executor   {}})
 
 (defn make-http
-  "Creates Http component using mostly default parameters."
+  "Creates Http component using mostly default parameters. No security, no additional middlewares."
   [api-resource configuration]
-  (map->Http {:api-resource   api-resource
-               :configuration configuration
-               :middlewares   default-middlewares
-               :s1st-options  default-s1st-options}))
+  (map->Http {:api-resource      api-resource
+              :configuration     configuration
+              :middlewares       default-middlewares
+              :security-handlers {}                         ; No security by default
+              :s1st-options      default-s1st-options}))
