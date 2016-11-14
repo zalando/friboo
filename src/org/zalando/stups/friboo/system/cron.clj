@@ -91,10 +91,11 @@
            (if (empty? jobs#)
              (log/warn "No jobs are currently scheduled.")
              (dorun
-               (map #(log/info (job-string %)) jobs#)))))
+              (map #(log/info (job-string %)) jobs#))))
 
-       (assoc this# :pool ~(symbol "pool")))
+         (assoc this# :pool ~(symbol "pool"))))
 
      (stop [this#]
-       (at/stop-and-reset-pool! (:pool this#) :strategy :kill)
+       (when-let [pool# (:pool this#)]
+         (at/stop-and-reset-pool! pool# :strategy :kill))
        (dissoc this# :pool))))
