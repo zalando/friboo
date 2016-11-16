@@ -23,7 +23,7 @@
            (org.apache.logging.log4j.core LoggerContext)
            (org.apache.logging.log4j.core.config Configuration LoggerConfig)))
 
-(defn- set-log-level!
+(defn set-log-level!
   "Changes the log level of the log4j2 root logger."
   [level & {:keys [logger-name]
             :or {logger-name LogManager/ROOT_LOGGER_NAME}}]
@@ -35,6 +35,9 @@
     (.updateLoggers ctx config)))
 
 (def stups-logger-name "org.zalando.stups")
+
+
+;; TODO the following is Zalando specific and has to be replaced with examples
 
 (def default-http-namespaces
   "Config namespaces, that are used by the default http component"

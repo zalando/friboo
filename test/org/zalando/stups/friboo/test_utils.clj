@@ -1,5 +1,6 @@
 (ns org.zalando.stups.friboo.test-utils
-    (:require [clojure.test :refer :all]))
+  (:require [clojure.test :refer :all])
+  (:import (java.net ServerSocket)))
 
 (defn track
   "Adds a tuple on call for an action."
@@ -27,3 +28,10 @@
 (defmacro false!
   [x]
   `(same! false ~x))
+
+(defn get-free-port []
+  (let [sock (ServerSocket. 0)]
+    (try
+      (.getLocalPort sock)
+      (finally
+        (.close sock)))))

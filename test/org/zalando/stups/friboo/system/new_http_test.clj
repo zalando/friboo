@@ -4,9 +4,9 @@
             [org.zalando.stups.friboo.system.new-http :refer :all :as new-http]
             [com.stuartsierra.component :as component]
             [clj-http.client :as http]
-            [clojure.pprint :refer [pprint]])
-  (:import (java.net ServerSocket)
-           (com.netflix.hystrix.exception HystrixRuntimeException HystrixRuntimeException$FailureType)))
+            [clojure.pprint :refer [pprint]]
+            [org.zalando.stups.friboo.test-utils :as u])
+  (:import (com.netflix.hystrix.exception HystrixRuntimeException HystrixRuntimeException$FailureType)))
 
 (deftest unit-tests
 
@@ -22,18 +22,11 @@
 
   )
 
-(defn get-free-port []
-  (let [sock (ServerSocket. 0)]
-    (try
-      (.getLocalPort sock)
-      (finally
-        (.close sock)))))
-
 (defmacro with-test-http
   "Helper for running tests against working component.
   Picks a random port, starts the component and in the end always stops it."
   [[url-sym filename] & body]
-  `(let [port#      (get-free-port)
+  `(let [port#      (u/get-free-port)
          http-comp# (-> (str "org/zalando/stups/friboo/system/" ~filename)
                         (make-http {:port port#})
                         (component/start))
@@ -110,7 +103,7 @@
       => (contains {:status 200})))
 
   (fact "About controllers"
-    (let [port      (get-free-port)
+    (let [port      (u/get-free-port)
           http-comp (-> (make-http (str "org/zalando/stups/friboo/system/" "new_http.yml") {:port port})
                         ;; Instead of relying on component/using and starting the system, provide the dependency directly
                         (merge {:controller ..controller..})

@@ -91,7 +91,7 @@
            (if (empty? jobs#)
              (log/warn "No jobs are currently scheduled.")
              (dorun
-              (map #(log/info (job-string %)) jobs#))))
+               (map #(log/info (job-string %)) jobs#))))
 
          (assoc this# :pool ~(symbol "pool"))))
 

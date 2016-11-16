@@ -49,23 +49,4 @@
           :http   {:tokeninfo-url ..http-tokeninfo-url..}})
     )
 
-  (facts "about load-configuration"
-
-    (fact "By default, TOKENINFO_URL CREDENTIAL_DIR are duplicated into HTTP_ and OAUTH2_"
-      (with-redefs [environ/env {:tokeninfo-url   ..tokeninfo-url..
-                                 :credentials-dir ..credentials-dir..}]
-        (load-configuration [:http :oauth2] []))
-      => {:system {}
-          :http   {:tokeninfo-url ..tokeninfo-url..}
-          :oauth2 {:credentials-dir ..credentials-dir..}})
-
-    (fact "Decryption works"
-      (with-redefs [environ/env {:db-password "aws:kms:foo"}]
-        (load-configuration [:db] []))
-      => {:system {}
-          :db     {:password "secret"}}
-      (provided
-        (kms/decrypt anything anything) => {:plaintext (-> "secret" .getBytes ByteBuffer/wrap)}))
-    )
-
   )

@@ -86,14 +86,3 @@
   (-> (merge default-config environ/env)
       (remap-keys mapping)
       (parse-namespaces (conj namespaces :system))))
-
-(defn load-configuration
-  "Loads configuration with Zalando-specific tweaks (remapping and decryption) in place."
-  ;; TODO move this function into the Zalando-specific library
-  [namespaces default-configurations]
-  (decrypt/decrypt-config
-    (load-config
-      (apply merge default-configurations)
-      namespaces
-      {:mapping {:http-tokeninfo-url     :tokeninfo-url
-                 :oauth2-credentials-dir :credentials-dir}})))
