@@ -69,6 +69,7 @@
       (.close (:datasource component))
       (assoc component :datasource nil))))
 
+;; TODO Get rid of macro (same as with Http)
 (defmacro def-db-component
   "Defines a new database component."
   [name & {:keys [auto-migration?]

@@ -20,6 +20,7 @@
             [org.zalando.stups.friboo.system.metrics :as metrics]
             [org.zalando.stups.friboo.system.audit-log :as audit-log]
             [io.sarnowski.swagger1st.util.newrelic :as newrelic]
+            [ring.middleware.resource]
             [org.zalando.stups.friboo.security :as security]))
 
 (defn- parse-basic-auth

@@ -73,8 +73,7 @@
 ; configuration has to be given, contains links to IAM solution and timings
 ; tokens has to be given, contains map of tokenids to list of required scopes
 ; token-storage will be an atom containing the current access token
-(defrecord OAuth2TokenRefresher [
-                                 ;; Input parameters
+(defrecord OAuth2TokenRefresher [;; Input parameters
                                  configuration
                                  tokens
                                  ;; Set by start
