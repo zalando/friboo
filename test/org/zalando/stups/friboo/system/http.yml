@@ -34,7 +34,7 @@ paths:
     get:
       summary: Gives info
       description: Gives info
-      operationId: "org.zalando.stups.friboo.system.new-http-test/get-info"
+      operationId: "org.zalando.stups.friboo.system.http-test/get-info"
       responses:
         200:
           description: Info is given
@@ -45,7 +45,7 @@ paths:
     put:
       summary: Updates a foo
       description: Updates a foo
-      operationId: "org.zalando.stups.friboo.system.new-http-test/put-foo"
+      operationId: "org.zalando.stups.friboo.system.http-test/put-foo"
       parameters:
       - name: foo_id
         in: path
@@ -70,7 +70,7 @@ paths:
 #    get:
 #      summary: Throws an error
 #      description: Throws an error
-#      operationId: "org.zalando.stups.friboo.system.new-http-test/get-error"
+#      operationId: "org.zalando.stups.friboo.system.http-test/get-error"
 #      responses:
 #        200:
 #          description: Never happens

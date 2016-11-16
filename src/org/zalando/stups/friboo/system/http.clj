@@ -1,4 +1,4 @@
-; Copyright © 2015 Zalando SE
+; Copyright © 2016 Zalando SE
 ;
 ; Licensed under the Apache License, Version 2.0 (the "License");
 ; you may not use this file except in compliance with the License.
@@ -11,40 +11,140 @@
 ; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 ; See the License for the specific language governing permissions and
 ; limitations under the License.
-(ns org.zalando.stups.friboo.system.http
-  (:require [com.stuartsierra.component :refer [Lifecycle]]
-            [io.sarnowski.swagger1st.core :as s1st]
-            [io.sarnowski.swagger1st.executor :as s1stexec]
-            [io.sarnowski.swagger1st.util.api :as s1stapi]
-            [io.sarnowski.swagger1st.util.api :as api]
-            [io.sarnowski.swagger1st.util.newrelic :as newrelic]
-            [org.zalando.stups.friboo.ring :as ring]
-            [org.zalando.stups.friboo.log :as log]
-            [org.zalando.stups.friboo.config :refer [require-config]]
-            [org.zalando.stups.friboo.system.metrics :refer [collect-swagger1st-zmon-metrics]]
-            [org.zalando.stups.friboo.system.audit-log :refer [collect-audit-logs]]
-            [org.zalando.stups.friboo.security :as security]
-            [ring.adapter.jetty :as jetty]
-            [ring.util.response :as r]
-            [ring.middleware.resource :refer [wrap-resource]]
-            [ring.middleware.content-type :refer [wrap-content-type]]
-            [ring.middleware.not-modified :refer [wrap-not-modified]]
-            [ring.middleware.gzip :refer [wrap-gzip]]
-            [clojure.data.codec.base64 :as b64]
-            [io.clj.logging :refer [with-logging-context]]
-            [clj-http.client :as client]
-            [com.netflix.hystrix.core :refer [defcommand]]
-            [clojure.core.memoize :as memo]
-            [clojure.core.cache :as cache]
-            [clojure.core.incubator :refer [dissoc-in]])
-  (:import (com.netflix.hystrix.exception HystrixRuntimeException)
-           (org.zalando.stups.txdemarcator Transactions)))
 
-(defn flatten-parameters
+(ns org.zalando.stups.friboo.system.http
+  (:require [io.sarnowski.swagger1st.executor :as s1stexec]
+            [io.clj.logging :refer [with-logging-context]]
+            [ring.util.response :as r]
+            [org.zalando.stups.friboo.ring :as ring]
+            [clojure.data.codec.base64 :as b64]
+            [org.zalando.stups.friboo.log :as log]
+            [io.sarnowski.swagger1st.util.api :as api]
+            [io.sarnowski.swagger1st.core :as s1st]
+            [io.sarnowski.swagger1st.util.api :as s1stapi]
+            [ring.adapter.jetty :as jetty]
+            [org.zalando.stups.friboo.security :as security]
+            [ring.middleware.gzip :as gzip]
+            [com.stuartsierra.component :refer [Lifecycle]])
+  (:import (com.netflix.hystrix.exception HystrixRuntimeException)
+           (org.zalando.stups.txdemarcator Transactions)
+           (clojure.lang ExceptionInfo)))
+
+(defn merged-parameters
   "According to the swagger spec, parameter names are only unique with their type. This one assumes that parameter names
    are unique in general and flattens them for easier access."
   [request]
   (apply merge (vals (:parameters request))))
+
+(defn make-resolver-fn [controller]
+  "Calls operationId function with controller, flattened request params and raw request map."
+  (fn [request-definition]
+    (when-let [operation-fn (s1stexec/operationId-to-function request-definition)]
+      (fn [request]
+        (operation-fn controller (merged-parameters request) request)))))
+
+(defn middleware-chain [context middlewares]
+  (reduce #(%2 %1) context middlewares))
+
+(defn flatten1
+  "Flattens the collection one level, for example, converts {:a 1 :b 2} to (:a 1 :b 2)."
+  [coll]
+  (apply concat coll))
+
+(defn- with-flattened-options-map
+  "If f is defined like this:
+
+  `(defn f [first-arg & {:keys [a b] :as opts}] ... )`
+
+  makes it convenient to pass `opts` as a map:
+
+  `(-> first-arg (with-flattened-options-map f {:a 1 :b 2}))`
+  will result in
+  `(f first-arg :a 1 :b 2)`
+
+  Used in `start-component` for clarity.
+  "
+  [first-arg f options]
+  (apply f first-arg (flatten1 options)))
+
+(defn start-component [{:as this :keys [api-resource configuration middlewares security-handlers controller s1st-options]}]
+  (log/info "Starting HTTP daemon for API %s" api-resource)
+  (when (:handler this)
+    (throw (ex-info "Component already started, aborting." {})))
+  ;; Refer to default-middlewares object below for middleware lists
+  ;; Create context from the YAML definition on the classpath, optionally provide validation flag
+  (let [handler (-> (apply s1st/context :yaml-cp api-resource (flatten1 (:context s1st-options)))
+                    ;; Some middleware will need to access the component later
+                    (assoc :component this)
+                    ;; User can provide additional handlers to be executed before discoverer
+                    (middleware-chain (:before-discoverer middlewares))
+                    ;; Enables paths for API discovery, like /ui, /swagger.json and /.well-known/schema-discovery
+                    (with-flattened-options-map s1st/discoverer (:discoverer s1st-options))
+                    ;; User can provide additional handlers to be executed before mapper
+                    (middleware-chain (:before-mapper middlewares))
+                    ;; Given a path, figures out the spec part describing it
+                    (s1st/mapper)
+                    ;; User can provide additional handlers to be executed before protector
+                    (middleware-chain (:before-protector middlewares))
+                    ;; Enforces security according to the settings, depends on the spec from mapper
+                    (s1st/protector (merge security/allow-all-handlers security-handlers))
+                    ;; User can provide additional handlers to be executed before parser
+                    (middleware-chain (:before-parser middlewares))
+                    ;; Extracts parameter values from path, query and body of the request
+                    (with-flattened-options-map s1st/parser (:parser s1st-options))
+                    ;; User can provide additional handlers to be executed before executor
+                    (middleware-chain (:before-executor middlewares))
+                    ;; Calls the handler function for the request. Customizable through :resolver
+                    (with-flattened-options-map s1st/executor (merge {:resolver (make-resolver-fn controller)}
+                                                                     (:executor s1st-options))))]
+    (merge this {:handler handler
+                 :httpd   (jetty/run-jetty handler (merge configuration {:join? false}))})))
+
+(defn stop-component
+  "Stops the Http component."
+  [{:as this :keys [handler httpd]}]
+  (if-not handler
+    (do
+      (log/debug "Skipping stop of Http because it's not running.")
+      this)
+    (do
+      (log/info "Stopping Http.")
+      (when httpd
+        (.stop httpd))
+      (dissoc this :handler :httpd))))
+
+(defrecord Http [;; parameters (filled in by make-http on creation)
+                 api-resource
+                 configuration
+                 security-handlers
+                 middlewares
+                 s1st-options
+                 ;; dependencies (filled in by the component library before starting)
+                 controller
+                 metrics
+                 audit-log
+                 ;; runtime vals (filled in by start-component)
+                 httpd
+                 handler]
+  Lifecycle
+  (start [this]
+    (start-component this))
+  (stop [this]
+    (stop-component this)))
+
+(defn redirect-to-swagger-ui
+  "Can be used as operationId for GET /"
+  [& _]
+  (ring.util.response/redirect "/ui/"))
+
+;; ## Middleware
+
+(defn wrap-default-content-type [next-handler content-type]
+  (fn [request]
+    (let [response (next-handler request)]
+      (if (get-in response [:headers "Content-Type"])
+        response
+        (assoc-in response [:headers "Content-Type"] content-type)))))
 
 (defn compute-request-info
   "Creates a nice, readable request info text for logline prefixing."
@@ -80,60 +180,30 @@
           (r/status 200))
       (handler request))))
 
-(defn- replace-auth
-  [request new-value]
-  (assoc-in request [:headers "authorization"] new-value))
-
-(defn- parse-basic-auth
-  "Parse HTTP Basic Authorization header"
-  [authorization]
-  (-> authorization
-      (clojure.string/replace-first "Basic " "")
-      .getBytes
-      b64/decode
-      String.
-      (clojure.string/split #":" 2)
-      (#(zipmap [:username :password] %))))
-
-(defn map-authorization-header
-  "Map 'Token' and 'Basic' Authorization values to standard Bearer OAuth2 auth"
-  [authorization]
-  (when authorization
-    (condp #(.startsWith %2 %1) authorization
-      "Token " (.replaceFirst authorization "Token " "Bearer ")
-      "Basic " (let [basic-auth (parse-basic-auth authorization)]
-                 (if (= (:username basic-auth) "oauth2")
-                   (str "Bearer " (:password basic-auth))
-                   ; do not touch Basic auth headers if username is not "oauth2"
-                   authorization))
-      authorization)))
-
-(defn map-alternate-auth-header
-  "Map alternate Authorization headers to standard OAuth2 'Bearer' auth"
-  [handler]
-  (fn [request]
-    (let [authorization     (get-in request [:headers "authorization"])
-          new-authorization (map-authorization-header authorization)]
-      (if new-authorization
-        (handler (replace-auth request new-authorization))
-        (handler request)))))
-
 (defn add-config-to-request
   "Adds the HTTP configuration to the request object, so that handlers can access it."
   [next-handler configuration]
   (fn [request]
     (next-handler (assoc request :configuration configuration))))
 
-(defn convert-hystrix-exceptions
+(defn convert-exceptions
   [next-handler]
   (fn [request]
     (try
       (next-handler request)
+      ;; Hystrix exceptions as 503
       (catch HystrixRuntimeException e
         (let [reason       (-> e .getCause .toString)
               failure-type (str (.getFailureType e))]
           (log/warn (str "Hystrix: " (.getMessage e) " %s occurred, because %s") failure-type reason)
-          (api/throw-error 503 (str "A dependency is unavailable: " (.getMessage e))))))))
+          (api/throw-error 503 (str "A dependency is unavailable: " (.getMessage e)))))
+      ;; ex-info pass-through, will be caught inside parser
+      (catch ExceptionInfo e
+        (throw e))
+      ;; Other exceptions as 500
+      (catch Exception e
+        (log/error e "Unhandled exception.")
+        (api/throw-error 500 "Internal server error" (str e))))))
 
 (defn mark-transaction
   "Trigger the TransactionMarker with the swagger operationId for instrumentalisation."
@@ -143,133 +213,45 @@
           tx-parent-id (get-in request [:headers Transactions/APPDYNAMICS_HTTP_HEADER])]
       (Transactions/runInTransaction operation-id tx-parent-id #(next-handler request)))))
 
-(defn redirect-to-swagger-ui
-  [& _]
-  (ring.util.response/redirect "/ui/"))
+(def default-middlewares
+  "Default set of ring middlewares that are groupped by s1st phases"
+  {:before-discoverer [#(s1st/ring % add-config-to-request (-> % :component :configuration))
+                       #(s1st/ring % gzip/wrap-gzip)
+                       #(s1st/ring % enrich-log-lines)
+                       #(s1st/ring % s1stapi/add-hsts-header)
+                       #(s1st/ring % s1stapi/add-cors-headers)
+                       #(s1st/ring % s1stapi/surpress-favicon-requests)
+                       #(s1st/ring % health-endpoint)]
+   :before-mapper     []
+   :before-protector  []
+   :before-parser     [#(s1st/ring % mark-transaction)]
+   :before-executor   [;; Convert exceptions to ex-info so that parser creates nice 5xx responses
+                       #(s1st/ring % convert-exceptions)
+                       ;; now we also know the user, replace request info
+                       #(s1st/ring % enrich-log-lines)
+                       #(s1st/ring % wrap-default-content-type "application/json")]})
 
-(defn start-component
-  "Starts the http component."
-  [component metrics audit-logger definition resolver-fn]
-  (if (:handler component)
-    (do
-      (log/debug "Skipping start of HTTP ; already running.")
-      component)
+;; For documentation
+(def default-s1st-options {;; It's possible to disable validation of the spec
+                           ;; :context {:validate? true}
+                           :context    {}
+                           ;; The following parts are customizable:
+                           ;; :discoverer {:discovery-path  "/.well-known/schema-discovery"
+                           ;;              :definition-path "/swagger.json"
+                           ;;              :ui-path         "/ui/"
+                           ;;              :overwrite-host? true }
+                           :discoverer {}
+                           ;; No available options for parser, this is here for future
+                           :parser     {}
+                           ;; It's possible customize how exactly handler functions should be called
+                           ;; :executor {:resolver io.sarnowski.swagger1st.executor/operationId-to-function}
+                           :executor   {}})
 
-    (do
-      (log/info "Starting HTTP daemon for API %s" definition)
-      (let [configuration (:configuration component)
-
-            handler (-> (s1st/context :yaml-cp definition)
-                        (s1st/ring wrap-gzip)
-                        (s1st/ring enrich-log-lines)
-                        (s1st/ring s1stapi/add-hsts-header)
-                        (s1st/ring s1stapi/add-cors-headers)
-                        (s1st/ring s1stapi/surpress-favicon-requests)
-                        (s1st/ring health-endpoint)
-                        (s1st/ring map-alternate-auth-header)
-                        (s1st/discoverer)
-                        (s1st/mapper)
-                        (s1st/ring collect-swagger1st-zmon-metrics metrics)
-                        (s1st/ring mark-transaction)
-                        (newrelic/tracer)
-                        (s1st/parser)
-                        (s1st/ring convert-hystrix-exceptions)
-                        (s1st/protector {"oauth2"
-                                         (if (:tokeninfo-url configuration)
-                                           (do
-                                             (log/info "Checking access tokens against %s." (:tokeninfo-url configuration))
-                                             (security/oauth2 configuration security/check-corresponding-attributes
-                                                               :resolver-fn security/resolve-access-token))
-                                           (do
-                                             (log/warn "No token info URL configured; NOT ENFORCING SECURITY!")
-                                             (security/allow-all)))})
-                        (s1st/ring enrich-log-lines)        ; now we also know the user, replace request info
-                        (s1st/ring add-config-to-request configuration)
-                        (s1st/ring collect-audit-logs audit-logger)
-                        (s1st/executor :resolver resolver-fn))]
-
-        (if (:no-listen? configuration)
-          (merge component {:httpd   nil
-                            :handler handler})
-          (merge component {:httpd   (jetty/run-jetty handler (merge configuration
-                                                                     {:join? false}))
-                            :handler handler}))))))
-
-(defn stop-component
-  "Stops the http component."
-  [component]
-  (if-not (:handler component)
-    (do
-      (log/debug "Skipping stop of HTTP; not running.")
-      component)
-
-    (do
-      (log/info "Stopping HTTP daemon.")
-      (when-not (:no-listen? (:configuration component))
-        (.stop (:httpd component)))
-      (merge component {:httpd   nil
-                        :handler nil}))))
-
-;; Resolver function takes a map {"operationId" "com.example.foo/bar"} and returns a function of request
-;;  that calls (com.example.foo/bar params request ...)
-;; In this case we want to call com.example.foo/bar with some additional parameters,
-;;  with values already known at component start
-;; These additional parameters are called dependencies and may be provided as individual arguments:
-;;  (com.example.foo/bar params request db tokens)
-;; Or as a map:
-;;  (com.example.foo/bar params request {:db db :tokens tokens})
-
-(defn make-resolver-fn-with-deps-as-args [_ dependency-values]
-  (fn [request-definition]
-    (if-let [operation-fn (s1stexec/operationId-to-function request-definition)]
-      (fn [request]
-        (apply operation-fn (flatten-parameters request) request dependency-values)))))
-
-(defn make-resolver-fn-with-deps-as-map [dependency-names dependency-values]
-  (let [dependency-map (zipmap (map keyword dependency-names) dependency-values)]
-    (fn [request-definition]
-      (if-let [operation-fn (s1stexec/operationId-to-function request-definition)]
-        (fn [request]
-          (operation-fn (flatten-parameters request) request dependency-map))))))
-
-(defn select-resolver-fn-maker [{:keys [dependencies-as-map resolver-fn-maker]}]
-  (cond
-    dependencies-as-map make-resolver-fn-with-deps-as-map
-    resolver-fn-maker resolver-fn-maker
-    :default make-resolver-fn-with-deps-as-args))
-
-(defmacro def-http-component
-  "Creates an http component with your name and all your given dependencies. Those dependencies will also be available
-   for your functions.
-
-   Example:
-     (def-http-component API \"example-api.yaml\" [db scheduler])
-
-     (defn my-operation-function [parameters request db scheduler]
-       ...)
-
-  A flag can be provided to specify an alternative way of calling operation functions:
-     (def-http-component API \"example-api.yaml\" [db scheduler] :dependencies-as-map true)
-
-     (defn my-operation-function [parameters request {:keys [db scheduler]}]
-       ...)
-
-  You can specify a custom factory function for resolvers
-     (def-http-component API \"example-api.yaml\" [db scheduler] :resolver-fn-maker (fn ...))
-  Look at the existing implementations of make-resolver-fn-with-deps-as-args and make-resolver-fn-with-deps-as-map.
-
-  The first parameter will be a flattened list of the request parameters. See the flatten-parameters function.
-  "
-  [name definition dependencies & {:as opts}]
-  ; 'configuration' has to be given on initialization
-  ; 'httpd' is the internal http server state
-  `(defrecord ~name [~'configuration ~'httpd ~'metrics ~'audit-log ~@dependencies]
-     Lifecycle
-
-     (start [this#]
-       (let [resolver-fn-maker# (select-resolver-fn-maker ~opts)
-             resolver-fn# (resolver-fn-maker# '~dependencies ~dependencies)]
-         (start-component this# ~'metrics ~'audit-log ~definition resolver-fn#)))
-
-     (stop [this#]
-       (stop-component this#))))
+(defn make-http
+  "Creates Http component using mostly default parameters. No security, no additional middlewares."
+  [api-resource configuration]
+  (map->Http {:api-resource      api-resource
+              :configuration     configuration
+              :middlewares       default-middlewares
+              :security-handlers {}                         ; No security by default
+              :s1st-options      default-s1st-options}))

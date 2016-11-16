@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [midje.sweet :refer :all]
             [org.zalando.stups.friboo.config :as config]
-            [org.zalando.stups.friboo.system.new-http :as http]
+            [org.zalando.stups.friboo.system.http :as http]
             [com.stuartsierra.component :as component]
             [org.zalando.stups.friboo.test-utils :as u]))
 
@@ -14,7 +14,7 @@
                                args-configuration)
                         [:http])
         system        (component/map->SystemMap
-                        {:http (http/make-http "org/zalando/stups/friboo/system/new_http.yml" (:http configuration))})]
+                        {:http (http/make-http "org/zalando/stups/friboo/system/http.yml" (:http configuration))})]
     (component/start system)))
 
 (deftest works

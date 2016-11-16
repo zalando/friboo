@@ -31,7 +31,7 @@
         system        (component/map->SystemMap
                         {:http              (component/using
                                               (http/make-zalando-http
-                                                "org/zalando/stups/friboo/system/new_http.yml"
+                                                "org/zalando/stups/friboo/system/http.yml"
                                                 (:http configuration)
                                                 ;; TODO this is quite ugly, need to find a way to pass TOKENINFO_URL
                                                 ;; to Http component

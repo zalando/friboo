@@ -16,7 +16,7 @@
   (:require [clojure.data.codec.base64 :as b64]
             [io.clj.logging :refer [with-logging-context]]
             [io.sarnowski.swagger1st.core :as s1st]
-            [org.zalando.stups.friboo.system.new-http :as http]
+            [org.zalando.stups.friboo.system.http :as http]
             [org.zalando.stups.friboo.system.metrics :as metrics]
             [org.zalando.stups.friboo.system.audit-log :as audit-log]
             [io.sarnowski.swagger1st.util.newrelic :as newrelic]
