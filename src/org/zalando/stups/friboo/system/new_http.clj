@@ -24,9 +24,9 @@
             [io.sarnowski.swagger1st.util.api :as s1stapi]
             [ring.adapter.jetty :as jetty]
             [org.zalando.stups.friboo.security :as security]
-            [ring.middleware.gzip :as gzip])
-  (:import (com.stuartsierra.component Lifecycle)
-           (com.netflix.hystrix.exception HystrixRuntimeException)
+            [ring.middleware.gzip :as gzip]
+            [com.stuartsierra.component :refer [Lifecycle]])
+  (:import (com.netflix.hystrix.exception HystrixRuntimeException)
            (org.zalando.stups.txdemarcator Transactions)
            (clojure.lang ExceptionInfo)))
 
