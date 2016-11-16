@@ -49,4 +49,7 @@
           :http   {:tokeninfo-url ..http-tokeninfo-url..}})
     )
 
+  (facts "about require-config"
+    (require-config {:foo "bar"} :baz) => (throws IllegalArgumentException))
+
   )
