@@ -1,5 +1,6 @@
 (ns org.zalando.stups.friboo.system.audit-logger.http
   (:require [cheshire.core :as json]
+            [clojure.string :as str]
             [clj-http.client :as http]
             [com.stuartsierra.component :as component]
             [org.zalando.stups.friboo.ring :as ring]
