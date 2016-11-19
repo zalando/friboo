@@ -9,6 +9,8 @@
             [clojure.core.cache :as cache]
             [com.netflix.hystrix.core :refer [defcommand]]))
 
+;; TODO Deprecate and remove this in favor of Authorizer
+
 (defcommand
   fetch-teams
   [team-service-url access-token user-id]

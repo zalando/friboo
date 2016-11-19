@@ -72,8 +72,7 @@
                         (update :before-discoverer conj #(s1st/ring % map-alternate-auth-header))
                         (update :before-parser conj metrics-middleware)
                         (update :before-parser conj newrelic/tracer)
-                        (update :before-executor conj audit-logger-middleware)
-                        (update :before-mapper conj #(s1st/ring % ring.middleware.resource/wrap-resource "public")))]
+                        (update :before-executor conj audit-logger-middleware))]
     (http/map->Http
       {:api-resource      api-resource
        :configuration     configuration

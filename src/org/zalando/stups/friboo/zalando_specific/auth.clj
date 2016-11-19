@@ -1,6 +1,5 @@
 (ns org.zalando.stups.friboo.zalando-specific.auth
   (:require [clj-http.client :as http]
-            [cheshire.core :as json]
             [org.zalando.stups.friboo.ring :as r]
             [org.zalando.stups.friboo.config :refer [require-config]]
             [org.zalando.stups.friboo.log :as log]
@@ -15,38 +14,40 @@
 (defcommand fetch-auth
   "Asks magnificent if the user for this token has access to resources of this team. Returns true or false."
   {:hystrix/fallback-fn (comp (constantly false) log-hystrix-fallback)}
-  [{:keys [configuration]} team token]
+  [{:as this :keys [configuration]}
+   access-token
+   payload]
   (if-let [magnificent-url (:magnificent-url configuration)]
     (let [policy        (:magnificent-policy configuration "relaxed-radical-agility")
           auth-response (http/get
                           (r/conpath magnificent-url "/auth")
                           {:content-type     :json
-                           :oauth-token      token
+                           :oauth-token      access-token
                            :throw-exceptions false
-                           :body             (json/encode {:policy  policy
-                                                           :payload {:team team}})})]
+                           :form-params      {:policy  policy
+                                              :payload payload}})]
       (= 200 (:status auth-response)))
     true))
 
 (defn get-auth
   "Convenience wrapper around fetch-auth, with logging"
-  [{:as this :keys [configuration]} request team]
+  [{:as this :keys [configuration]}
+   {:as tokeninfo :strs [access_token realm uid] :or {uid "unknown user"}}
+   payload]
   (if-not (:magnificent-url configuration)
-    true                                                    ; Don't log anything
-    (let [token       (get-in request [:tokeninfo "access_token"])
-          realm       (get-in request [:tokeninfo "realm"])
-          user        (get-in request [:tokeninfo "uid"] "unknown user")
-          has-access? (fetch-auth this team token)]
-      (log/info (str "Access " (if has-access? "granted" "denied") ": %s") {:team team :user user :realm realm})
+    ;; Don't log anything
+    true
+    (let [has-access? (fetch-auth this access_token payload)]
+      (log/info (str "Access " (if has-access? "granted" "denied") ": %s") {:payload payload :user uid :realm realm})
       has-access?)))
 
 (defn require-auth
   "Like get-auth, but throws an error if user has no access"
-  [this request team]
-  (let [has-access? (get-auth this request team)
-        user        (get-in request [:tokeninfo "uid"] "unknown user")]
-    (when-not has-access?
-      (api/throw-error 403 "ACCESS DENIED" {:team team :user user}))))
+  [this
+   {:as tokeninfo :strs [uid] :or {uid "unknown user"}}
+   payload]
+  (when-not (get-auth this tokeninfo payload)
+    (api/throw-error 403 "ACCESS DENIED" {:payload payload :user uid})))
 
 (defn start-component [{:as this :keys [configuration]}]
   (log/info "Starting Authorizer.")
@@ -58,11 +59,7 @@
   (log/info "Stopping Authorizer.")
   this)
 
-(defrecord Authorizer [;; parameters (filled in by make-authorizer on creation)
-                       configuration
-                       ;; dependencies (filled in by the component library before starting)
-                       ;; runtime vals (filled in by start-component)
-                       ]
+(defrecord Authorizer [configuration]
   Lifecycle
   (start [this]
     (start-component this))

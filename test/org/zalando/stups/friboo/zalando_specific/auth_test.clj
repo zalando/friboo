@@ -2,42 +2,62 @@
   (:require
     [clj-http.client :as http]
     [org.zalando.stups.friboo.test-utils :refer :all]
-    [org.zalando.stups.friboo.zalando-specific.auth :as auth]
+    [org.zalando.stups.friboo.zalando-specific.auth :refer :all]
     [clojure.test :refer :all]
-    [org.zalando.stups.friboo.test-utils :as u]))
+    [midje.sweet :refer :all]))
 
-(deftest fetch-auth
-  (u/with-comp [auth-comp (auth/map->Authorizer {:configuration {:magnificent-url    "magnificent-url"
-                                                                 :magnificent-policy "policy"}})]
+(deftest test-fetch-auth
+  (with-comp [auth-comp (map->Authorizer {:configuration {:magnificent-url    "magnificent-url"
+                                                          :magnificent-policy "policy"}})]
     (testing "should return true if response was OK"
       (with-redefs [http/get (constantly {:status 200})]
-        (let [result (auth/fetch-auth auth-comp "team" "token")]
+        (let [result (fetch-auth auth-comp "token" {:payload "team"})]
           (true! result))))
     (testing "should return false if response was not OK"
       (with-redefs [http/get (constantly {:status 403})]
-        (let [result (auth/fetch-auth auth-comp "team" "token")]
+        (let [result (fetch-auth auth-comp "token" {:payload "team"})]
           (false! result))))
     (testing "should return false in case of error"
       (with-redefs [http/get (throwing "UAAAH")]
-        (let [result (auth/fetch-auth auth-comp "team" "token")]
+        (let [result (fetch-auth auth-comp "token" {:payload "team"})]
           (false! result))))))
 
-(deftest require-auth
-  (with-comp [auth-comp (auth/map->Authorizer {:configuration {:magnificent-url    "magnificent-url"
-                                                               :magnificent-policy "policy"}})]
+(deftest test-require-auth
+  (with-comp [auth-comp (map->Authorizer {:configuration {:magnificent-url    "magnificent-url"
+                                                          :magnificent-policy "policy"}})]
     (testing "should throw if access is denied"
-      (with-redefs [auth/fetch-auth (constantly false)]
+      (with-redefs [fetch-auth (constantly false)]
         (try
-          (auth/require-auth auth-comp {} "team")
+          (require-auth auth-comp {} {:payload "team"})
           (is false)
           (catch Exception ex
             (let [data (ex-data ex)]
               (same! 403 (:http-code data)))))))
     (testing "should not throw if access is granted"
-      (with-redefs [auth/fetch-auth (constantly true)]
-        (let [result (auth/require-auth auth-comp {} "team")]
+      (with-redefs [fetch-auth (constantly true)]
+        (let [result (require-auth auth-comp {} {:payload "team"})]
           (is (nil? result))))))
-  (with-comp [auth-comp (auth/map->Authorizer {:configuration {}})]
+  (with-comp [auth-comp (map->Authorizer {:configuration {}})]
     (testing "When magnificent-url is not set, should return true no matter what fetch-auth would say"
-      (with-redefs [auth/fetch-auth (constantly false)]
-        (same! true (auth/get-auth auth-comp {} "team"))))))
+      (with-redefs [fetch-auth (constantly false)]
+        (same! true (get-auth auth-comp {} "team"))))))
+
+(deftest wrap-midje-facts
+
+  (facts "about get-auth"
+    (with-comp [auth-comp (map->Authorizer {:configuration {:magnificent-policy "policy"}})]
+      (fact "When magnificent-url is not set, just return true"
+        (get-auth auth-comp anything anything) => true
+        (provided
+          (http/get anything anything) => nil :times 0)))
+    (with-comp [auth-comp (map->Authorizer {:configuration {:magnificent-url    "magnificent-url"
+                                                            :magnificent-policy "policy"}})]
+      (fact "Should call POST magnificent-url/auth with payload and auth header"
+        (get-auth auth-comp {"access_token" "token"} {:team "team"}) => true
+        (provided
+          (http/get "magnificent-url/auth" (contains {:oauth-token "token"
+                                                      :form-params {:policy  "policy"
+                                                                    :payload {:team "team"}}}))
+          => {:status 200}))))
+
+  )
