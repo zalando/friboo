@@ -32,7 +32,7 @@
 (defn get-auth
   "Convenience wrapper around fetch-auth, with logging"
   [{:as this :keys [configuration]}
-   {:as tokeninfo :strs [access_token realm uid] :or {uid "unknown user"}}
+   {:as tokeninfo :strs [access_token realm uid]}
    payload]
   (if-not (:magnificent-url configuration)
     ;; Don't log anything
@@ -44,7 +44,7 @@
 (defn require-auth
   "Like get-auth, but throws an error if user has no access"
   [this
-   {:as tokeninfo :strs [uid] :or {uid "unknown user"}}
+   {:as tokeninfo :strs [uid]}
    payload]
   (when-not (get-auth this tokeninfo payload)
     (api/throw-error 403 "ACCESS DENIED" {:payload payload :user uid})))
