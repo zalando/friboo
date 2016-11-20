@@ -1,6 +1,6 @@
 # friboo-template
 
-A Leiningen template for Friboo library (https://github.com/zalando-stups/friboo).
+A Leiningen template for Friboo library (https://github.com/zalando/friboo).
 
 This document only describes development guidelines. For usage please refer the the main README of Friboo.
 
@@ -16,7 +16,7 @@ $ lein new friboo <project> --snapshot
 
 ## Testing
 
-So far this is a manual step. Docker is required.
+So far this is a manual step.
 
 ```
 $ ./itest.sh

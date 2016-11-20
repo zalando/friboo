@@ -1,6 +1,6 @@
-(defproject friboo/lein-template "0.3.0-SNAPSHOT"
+(defproject friboo/lein-template "2.0.0-SNAPSHOT"
   :description "Leiningen template for Friboo library"
-  :url "https://github.com/dryewo/friboo-template"
+  :url "https://github.com/zalando/friboo/template"
   :license {:name "Apache License"
             :url  "http://www.apache.org/licenses/"}
   :eval-in-leiningen true

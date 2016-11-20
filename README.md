@@ -32,52 +32,44 @@ Friboo is used in production by numerous services in Zalando; see the list at th
 ### Starting a New Project
 To start a new project based on Friboo, use the Leiningen template:
 
-    $ lein new friboo <project>
+    $ lein new friboo com.example/friboo-is-awesome
 
 This will generate a sample project containing some "foobar" logic that can serve as a starting point in your experiments.
 
-A new directory with the `<project>` name will be created in the current directory, containing the following files:
+A new directory with name `friboo-is-awesome` will be created in the current directory, containing the following files:
 
 ```
 friboo-is-awesome
-├── Dockerfile
 ├── README.md
-├── db.sh
 ├── dev
 │   └── user.clj
 ├── dev-config.edn
 ├── project.clj
 ├── resources
-│   ├── api
-│   │   └── api.yaml
-│   └── db
-│       ├── migration
-│       │   └── V1__initial_schema.sql
-│       └── queries.sql
+│   └── api
+│       └── api.yaml
 ├── src
-│   └── friboo_is_awesome
-│       ├── api.clj
-│       ├── core.clj
-│       └── db.clj
+│   └── com
+│       └── example
+│           └── friboo_is_awesome
+│               ├── controller.clj
+│               └── core.clj
 └── test
-    └── friboo_is_awesome
-        ├── api_test.clj
-        └── core_test.clj
+    └── com
+        └── example
+            └── friboo_is_awesome
+                ├── controller_test.clj
+                └── core_test.clj
 ```
 
-* `Dockerfile` contains basic instructions for packaging the uberjar into a Docker image.
 * `README.md` contains some pregenerated development tips for the new project.
-* `db.sh` contains handy scripts to run a PostgreSQL database in a Docker container for development and integration testing.
 * `dev/user.clj` contains functions for [Reloaded Workflow](http://thinkrelevance.com/blog/2013/06/04/clojure-workflow-reloaded).
 * `dev-config.edn` contains environment variables that will be used during reloaded workflow (instead of putting them into `profiles.clj`).
 * `project.clj` contains the project definition with all dependencies and some additional plugins.
 * `resources/api.yaml` contains the [Swagger API definition](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md) in .yaml format.
-* `resources/db/migration/V1__initial_schema.sql` contains some DDL for the example (used by the [Flyway](https://flywaydb.org/) library).
-* `resources/db/queries.sql` contains sample queries for the app (used by the [Yesql](https://github.com/krisajenkins/yesql) library).
 * the `src` directory contains these components:
 	* `core.clj` is the [system](https://github.com/stuartsierra/component#systems) definition.
-	* `api.clj` contains API endpoint handlers.
-	* `db.clj` contains generated functions for accessing the database.
+	* `controller.clj` contains API endpoint handlers.
 * the `test` directory contains unit test examples using both `clojure.test` and [Midje](https://github.com/marick/Midje).
 
 ### Configuration Options
