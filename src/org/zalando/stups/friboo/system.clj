@@ -21,7 +21,8 @@
             )
   (:import (org.apache.logging.log4j LogManager Level)
            (org.apache.logging.log4j.core LoggerContext)
-           (org.apache.logging.log4j.core.config Configuration LoggerConfig)))
+           (org.apache.logging.log4j.core.config Configuration LoggerConfig)
+           (clojure.lang ExceptionInfo)))
 
 (defn set-log-level!
   "Changes the log level of the log4j2 root logger."
@@ -52,7 +53,11 @@
       (log/warn "Setting log level to %s." log-level)
       (set-log-level! log-level)))
 
-  ;; TODO add exception handling and cleanup here (stop all the components)
-  (let [system (component/start system)]
-    (log/info "System started.")
-    system))
+  (try
+    (let [system (component/start system)]
+      (log/info "System started.")
+      system)
+    (catch ExceptionInfo e
+      (when-let [{:as exd :keys [system]} (ex-data e)]
+        (component/stop system))
+      (throw e))))
