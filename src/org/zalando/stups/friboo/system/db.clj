@@ -22,7 +22,20 @@
            (org.flywaydb.core Flyway)
            (org.postgresql.util PSQLException)
            (com.netflix.hystrix.exception HystrixBadRequestException)
-           (com.fasterxml.jackson.databind.util ISO8601Utils)))
+           (com.fasterxml.jackson.databind.util ISO8601Utils)
+           (java.util Properties)))
+
+(defn load-flyway-configuration
+  [configuration jdbc-url]
+  (let [properties (Properties.)]
+    (doseq [property configuration]
+      (when (.contains (name (key property)) "flyway")
+        (.setProperty properties (clojure.string/replace (name (key property)) "-" ".") (val property))))
+    (.setProperty properties "flyway.driver" "")
+    (.setProperty properties "flyway.url" jdbc-url)
+    (.setProperty properties "flyway.user" (require-config configuration :user))
+    (.setProperty properties "flyway.password" (require-config configuration :password))
+    properties))
 
 (defn start-component [{:as this :keys [configuration]}]
   (if (:datasource this)
@@ -37,7 +50,7 @@
         (when auto-migration?
           (log/info "Initiating automatic DB migration for %s." jdbc-url)
           (doto (Flyway.)
-            (.setDataSource jdbc-url (require-config configuration :user) (require-config configuration :password) (make-array String 0))
+            (.configure (load-flyway-configuration configuration jdbc-url))
             (.migrate)))
 
         (log/info "Starting DB connection pool for %s." jdbc-url)
