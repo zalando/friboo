@@ -13,7 +13,7 @@
   :java-source-paths ["java"]
 
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [org.zalando/swagger1st "0.23.0" :exclusions [org.apache.httpcomponents/httpcore]]
+                 [org.zalando/swagger1st "0.24.0" :exclusions [org.apache.httpcomponents/httpcore]]
                  [org.zalando.stups/txdemarcator "0.7.0"]
                  [com.stuartsierra/component "0.3.1"]
                  [digest "1.4.5"]
