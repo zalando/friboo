@@ -1,12 +1,12 @@
 (defproject org.zalando.stups/friboo "2.0.0-beta2-SNAPSHOT"
-  :description "A utility library to write microservices in clojure."
-  :url "https://github.com/zalando-stups/friboo"
+  :description "An utility library to write microservices in clojure."
+  :url "https://github.com/zalando/friboo"
 
   :license {:name "Apache 2.0"
             :url  "http://www.apache.org/licenses/LICENSE-2.0"
             :distribution :repo}
 
-  :scm {:url "git@github.com:zalando-stups/friboo.git"}
+  :scm {:url "git@github.com:zalando/friboo.git"}
 
   :min-lein-version "2.0.0"
 
