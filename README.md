@@ -1,7 +1,7 @@
 # friboo
 
 ![Maven Central](https://img.shields.io/maven-central/v/org.zalando.stups/friboo.svg)
-[![Build Status](https://travis-ci.org/zalando-stups/friboo.svg?branch=master)](https://travis-ci.org/zalando-stups/friboo)
+[![Build Status](https://travis-ci.org/zalando/friboo.svg?branch=master)](https://travis-ci.org/zalando/friboo)
 [![codecov](https://codecov.io/gh/zalando/friboo/branch/master/graph/badge.svg)](https://codecov.io/gh/zalando/friboo)
 
 **Friboo** is a lightweight utility library for writing microservices in Clojure. It provides several components that you can use with Stuart Sierra's [Component lifecycle framework](https://github.com/stuartsierra/component).
