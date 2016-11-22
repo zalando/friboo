@@ -1,5 +1,6 @@
 (ns org.zalando.stups.friboo.system.audit-logger.http
   (:require [cheshire.core :as json]
+            [clojure.string :as str]
             [clj-http.client :as http]
             [com.stuartsierra.component :as component]
             [org.zalando.stups.friboo.ring :as ring]
@@ -40,8 +41,9 @@
         this)
       (do
         (log/info "Starting HTTP audit logger")
-        (assoc this :log-fn (logger-factory configuration tokens)))))
+        (assoc this :log-fn (logger-factory configuration tokens)
+                    :enabled (not (str/blank? (:api-url configuration)))))))
   (stop
     [this]
     (log/info "Shutting down HTTP audit logger")
-    (dissoc this :log-fn)))
+    (dissoc this :log-fn :enabled)))
