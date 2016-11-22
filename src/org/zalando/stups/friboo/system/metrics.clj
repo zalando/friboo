@@ -16,7 +16,8 @@
             [org.zalando.stups.friboo.log :as log]
             [metrics.core :as metrics]
             [metrics.timers :as tmr]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [org.zalando.stups.friboo.config :as config])
   (:import (java.util.concurrent TimeUnit)
            (com.codahale.metrics.servlets MetricsServlet$ContextListener MetricsServlet)
            (org.eclipse.jetty.servlet ServletHolder FilterHolder ServletContextHandler)
@@ -51,22 +52,22 @@
                                 "*ROOT*"
                                 path))]))
 
-(defn collect-swagger1st-zmon-metrics
+(defn collect-swagger1st-request-metrics
   "Ring middleware that creates Timers for Swagger API calls
   and stores them in the running metrics component."
-  [next-handler component]
-  (if-let [metrics-registry (:metrics-registry component)]
-    ; then
+  [next-handler {:keys [metrics-registry configuration]}]
+  (if metrics-registry
     (fn [request]
-      (let [start (System/currentTimeMillis)
+      (let [start    (System/currentTimeMillis)
             response (next-handler request)
-            status (:status response)
-            timer (tmr/timer metrics-registry ["zmon" "response" (swagger1st-request2string request status)])]
+            status   (:status response)
+            ;; TODO replace "zmon" with configuration value
+            prefix   (config/require-config configuration :metrics-prefix)
+            timer    (tmr/timer metrics-registry [prefix "response" (swagger1st-request2string request status)])]
         (.update timer (- (System/currentTimeMillis) start) (TimeUnit/MILLISECONDS))
         response))
-    ; else
     (do
-      (log/info "Do not collect metrics for Zmon. The metrics component is not running.")
+      (log/info "Not collecting metrics for requests. Metrics component is not running.")
       next-handler)))
 
 (defn running? [component]
@@ -83,30 +84,37 @@
   context)
 
 (defn add-metrics-filter
-  [^ServletContextHandler context metrics]
-  (when-let [metrics-registry (:metrics-registry metrics)]
-    (.addFilter context
-                (FilterHolder. (proxy [Filter] []
-                                 (doFilter [^ServletRequest request ^ServletResponse response ^FilterChain chain]
-                                   (if (and (instance? HttpServletResponse response) (instance? HttpServletRequest request))
-                                     (let [start (System/currentTimeMillis)
-                                           status (atom 500)]
-                                       (try
-                                         (.doFilter chain request response)
-                                         (swap! status (fn [_] (.getStatus (cast HttpServletResponse response))))
+  [^ServletContextHandler context {:keys [metrics-registry configuration]}]
+  (when metrics-registry
+    (.addFilter
+      context
+      (FilterHolder.
+        (proxy [Filter] []
+          (doFilter [^ServletRequest request ^ServletResponse response ^FilterChain chain]
+            (if (and (instance? HttpServletResponse response) (instance? HttpServletRequest request))
+              (let [start  (System/currentTimeMillis)
+                    status (atom 500)]
+                (try
+                  (.doFilter chain request response)
+                  (swap! status (fn [_] (.getStatus (cast HttpServletResponse response))))
 
-                                         (finally
-                                           (let [timer (tmr/timer metrics-registry ["zmon" "response" (http-servlet-request2string request @status)])]
-                                             (.update timer (- (System/currentTimeMillis) start) (TimeUnit/MILLISECONDS))))))
-                                     (.doFilter chain request response)))
+                  (finally
+                    (let [prefix      (config/require-config configuration :metrics-prefix)
+                          request-str (http-servlet-request2string request @status)
+                          timer       (tmr/timer metrics-registry [prefix "response" request-str])]
+                      (.update timer (- (System/currentTimeMillis) start) (TimeUnit/MILLISECONDS))))))
+              (.doFilter chain request response)))
 
-                                 (init [^FilterConfig _] nil)
-                                 (destroy [] nil)))
-                "/metrics"
-                (EnumSet/of DispatcherType/REQUEST)))
+          (init [^FilterConfig _] nil)
+          (destroy [] nil)))
+      "/metrics"
+      (EnumSet/of DispatcherType/REQUEST)))
   context)
 
-(defrecord Metrics []
+(def default-configuration
+  {:metrics-prefix "friboo"})
+
+(defrecord Metrics [configuration]
   Lifecycle
 
   (start [component]
@@ -116,9 +124,11 @@
         (log/info "Metrics registry already running.")
         component)
       ; else
-      (let [registry (metrics/new-registry)]
+      (let [registry                    (metrics/new-registry)
+            configuration-with-defaults (merge default-configuration configuration)]
         (log/info "Created a new metrics registry.")
-        (assoc component :metrics-registry registry))))
+        (assoc component :metrics-registry registry
+                         :configuration configuration-with-defaults))))
 
 
   (stop [component]

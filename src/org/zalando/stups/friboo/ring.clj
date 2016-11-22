@@ -13,8 +13,7 @@
 ; limitations under the License.
 
 (ns org.zalando.stups.friboo.ring
-  (:require [ring.util.response :refer :all]
-            [clojure.string :as s]))
+  (:require [ring.util.response :refer :all]))
 
 ;; some convinience helpers
 
@@ -29,29 +28,3 @@
   (if (empty? results)
     (not-found {})
     (response (first results))))
-
-(defmacro xor
-  [a b]
-  `(or (and ~a (not ~b))
-       (and (not ~a) ~b)))
-
-(defn conpath
-  "Concatenates path elements to an URL."
-  [url & path]
-  (let [[x & xs] path]
-    (let [x (str x)
-          first-with-slash (.endsWith url "/")
-            last-with-slash  (.startsWith x "/")
-            url (if (xor first-with-slash
-                         last-with-slash)
-                  ; concat if exactly one of them has a /
-                  (str url x)
-                  (if (and first-with-slash
-                           last-with-slash)
-                    ; if both have a /, remove one
-                    (str url (s/replace-first x #"/" ""))
-                    ; if none have a /, add one
-                    (str url "/" x)))]
-      (if xs
-        (recur url xs)
-        url))))

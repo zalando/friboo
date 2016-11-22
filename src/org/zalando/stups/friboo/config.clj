@@ -15,8 +15,7 @@
 (ns org.zalando.stups.friboo.config
   (:require [environ.core :as environ]
             [org.zalando.stups.friboo.log :as log]
-            [clojure.string :as str]
-            [org.zalando.stups.friboo.config-decrypt :as decrypt]))
+            [clojure.string :as str]))
 
 (defn- nil-or-empty?
   "If x is a string, returns true if nil or empty. Else returns true if x is nil"

@@ -17,13 +17,11 @@
             [io.clj.logging :refer [with-logging-context]]
             [ring.util.response :as r]
             [org.zalando.stups.friboo.ring :as ring]
-            [clojure.data.codec.base64 :as b64]
             [org.zalando.stups.friboo.log :as log]
             [io.sarnowski.swagger1st.util.api :as api]
             [io.sarnowski.swagger1st.core :as s1st]
             [io.sarnowski.swagger1st.util.api :as s1stapi]
             [ring.adapter.jetty :as jetty]
-            [org.zalando.stups.friboo.security :as security]
             [ring.middleware.gzip :as gzip]
             [com.stuartsierra.component :refer [Lifecycle]])
   (:import (com.netflix.hystrix.exception HystrixRuntimeException)
@@ -67,6 +65,17 @@
   [first-arg f options]
   (apply f first-arg (flatten1 options)))
 
+(defn allow-all
+  "Returns a swagger1st security handler that allows everything."
+  []
+  (fn [request definition requirements]
+    request))
+
+;; Security handler types according to http://swagger.io/specification/#securitySchemeObject
+(def allow-all-handlers {"oauth2" (allow-all)
+                         "basic"  (allow-all)
+                         "apiKey" (allow-all)})
+
 (defn start-component [{:as this :keys [api-resource configuration middlewares security-handlers controller s1st-options]}]
   (log/info "Starting HTTP daemon for API %s" api-resource)
   (when (:handler this)
@@ -87,7 +96,7 @@
                     ;; User can provide additional handlers to be executed before protector
                     (middleware-chain (:before-protector middlewares))
                     ;; Enforces security according to the settings, depends on the spec from mapper
-                    (s1st/protector (merge security/allow-all-handlers security-handlers))
+                    (s1st/protector (merge allow-all-handlers security-handlers))
                     ;; User can provide additional handlers to be executed before parser
                     (middleware-chain (:before-parser middlewares))
                     ;; Extracts parameter values from path, query and body of the request

@@ -30,7 +30,6 @@
                  [org.apache.logging.log4j/log4j-jul "2.7"]
                  [com.jolbox/bonecp "0.8.0.RELEASE" :exclusions [com.google.guava/guava]]
                  [org.flywaydb/flyway-core "4.0.3"]
-                 [org.postgresql/postgresql "9.4.1212"]
                  [amazonica "0.3.77" :exclusions [org.apache.httpcomponents/httpclient joda-time]]
                  [org.clojure/data.codec "0.1.0"]
                  [overtone/at-at "1.2.0"]

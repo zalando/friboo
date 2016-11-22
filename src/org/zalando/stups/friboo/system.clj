@@ -14,11 +14,7 @@
 
 (ns org.zalando.stups.friboo.system
   (:require [com.stuartsierra.component :as component]
-            [org.zalando.stups.friboo.log :as log]
-            [org.zalando.stups.friboo.system.metrics :refer [map->Metrics]]
-            [org.zalando.stups.friboo.system.audit-log :refer [map->AuditLog]]
-            [org.zalando.stups.friboo.system.mgmt-http :refer [map->MgmtHTTP]]
-            )
+            [org.zalando.stups.friboo.log :as log])
   (:import (org.apache.logging.log4j LogManager Level)
            (org.apache.logging.log4j.core LoggerContext)
            (org.apache.logging.log4j.core.config Configuration LoggerConfig)

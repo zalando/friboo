@@ -7,6 +7,8 @@
            (org.zalando.stups.txdemarcator Transactions)
            (com.newrelic.api.agent Trace NewRelic)))
 
+;; TODO remove newrelic parts
+
 ;; got from overtaone/at-at
 
 (defn format-date
@@ -75,6 +77,7 @@
 (defn create-pool [configuration]
   (apply at/mk-pool (flatten (seq configuration))))
 
+;; TODO replace macro with function, same approach as with def-db-component
 (defmacro def-cron-component
   "Defines a new cron job component."
   [name dependencies & jobs]

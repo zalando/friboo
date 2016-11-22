@@ -37,7 +37,7 @@
                   :comp2 (component/using
                            (map->FakeComponent {:counter counter :throw-error? true})
                            [:comp1])})]
-    (system/run {} system)))
+    (system/run {:system {:stups-log-level "INFO" :log-level "INFO"}} system)))
 
 (deftest works
 

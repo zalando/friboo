@@ -20,7 +20,6 @@
             [com.netflix.hystrix.core :refer [defcommand]])
   (:import (com.jolbox.bonecp BoneCPDataSource)
            (org.flywaydb.core Flyway)
-           (org.postgresql.util PSQLException)
            (com.netflix.hystrix.exception HystrixBadRequestException)
            (com.fasterxml.jackson.databind.util ISO8601Utils)
            (java.util Properties)))
@@ -105,19 +104,18 @@
 
 ;; Helpers for hystrix wrapping
 
-(defn ignore-nonfatal-psqlexception
-  "Do not close curcuits because PSQLException with non-fatal error was thrown."
-  [t]
-  (when (instance? PSQLException t)
-    (when-not (.startsWith (.getMessage t) "FATAL:")
-      "non-fatal postgresql message")))
+(defn ignore-nonfatal-exceptions
+  "Default do-nothing nonfatal exception indicator. You would probably want to replace it with something that
+  returns a non-nil string on bad requests errors"
+  [e]
+  nil)
 
 (defmacro generate-hystrix-commands
   "Wraps all functions in the used namespace"
   [& {:keys [prefix suffix ignore-exception-fn? namespace]
       :or   {prefix               "cmd-"
              suffix               ""
-             ignore-exception-fn? ignore-nonfatal-psqlexception
+             ignore-exception-fn? ignore-nonfatal-exceptions
              namespace            *ns*}}]
   `(do ~@(map (fn [[n f]]
                 `(defcommand ~(symbol (str prefix (name n) suffix))
