@@ -4,19 +4,6 @@ A project based on Friboo library.
 
 ## Development
 
-Add this line into your `/etc/hosts` file:
-
-```
-192.168.99.100  docker     # With docker-machine on OS X
-127.0.0.1       docker     # When running docker natively on Linux 
-```
-
-You can use `db.sh` to start the database container:
-
-```
-$ ./db.sh drun
-```
-
 Run  the application:
 
 ```
@@ -35,23 +22,20 @@ $ lein test
 ## Building
 
 ```
-$ lein do uberjar, scm-source, docker build
+$ lein uberjar
 ```
 
 ## Running
 
 ```
-$ docker run -it -p 8080:8080 {{name}}
+$ lein run
 ```
 
 The following configuration environment variables are available:
 
 | Variable | Meaning | Default | Example |
 |---|---|---|---|
-| TOKENINFO_URL | Token info URL to validate access tokens against. | By default security is not enforced. | `https://auth.example.com/oauth2/tokeninfo` |
-| DB_SUBNAME | PostgreSQL connection string | `//localhost:5432/pierone` | `//{{name}}.db.example.com:5432/{{name}}?ssl=true` |
-| DB_USER | PostgreSQL username. | `postgres` | |
-| DB_PASSWORD | PostgreSQL password. | `postgres` | |
+| API_EXAMPLE_PARAM | Example parameter with `:api-` prefix | `bar` | `foo` |
 
 ## License
 

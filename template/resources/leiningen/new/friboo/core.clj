@@ -1,11 +1,10 @@
 (ns {{namespace}}.core
-  (:require
-    [org.zalando.stups.friboo.config :as config]
-    [org.zalando.stups.friboo.system :as system]
-    [org.zalando.stups.friboo.system.http :as http]
-    [org.zalando.stups.friboo.log :as log]
-    [com.stuartsierra.component :as component]
-    [{{namespace}}.controller :as controller])
+  (:require [org.zalando.stups.friboo.config :as config]
+            [org.zalando.stups.friboo.system :as system]
+            [org.zalando.stups.friboo.system.http :as http]
+            [org.zalando.stups.friboo.log :as log]
+            [com.stuartsierra.component :as component]
+            [{{namespace}}.api :as api])
   (:gen-class))
 
 (def default-http-config
@@ -17,14 +16,14 @@
   (let [config (config/load-config
                  (merge default-http-config
                         args-config)
-                 [:http :controller])
+                 [:http :api])
         system (component/map->SystemMap
-                 {:http       (component/using
-                                (http/make-http "api/api.yaml" (:http config))
-                                [:controller])
-                  :controller (component/using
-                                (controller/map->Controller {:configuration (:controller config)})
-                                [])})]
+                 {:http (component/using
+                          (http/make-http "api.yaml" (:http config))
+                          {:controller :api})
+                  :api  (component/using
+                          (api/map->Controller {:configuration (:api config)})
+                          [])})]
     (system/run config system)))
 
 (defn -main

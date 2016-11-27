@@ -1,8 +1,7 @@
-(ns {{namespace}}.controller-test
-  (:require
-    [clojure.test :refer :all]
-    [midje.sweet :refer :all]
-    [{{namespace}}.controller :refer :all]))
+(ns {{namespace}}.api-test
+  (:require [clojure.test :refer :all]
+            [midje.sweet :refer :all]
+            [{{namespace}}.api :refer :all]))
 
 (deftest can-get-hello
   (is (= (get-hello {:configuration {:example-param "foo"}} {:name "Friboo"} nil)

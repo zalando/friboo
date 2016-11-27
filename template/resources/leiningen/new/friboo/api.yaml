@@ -17,9 +17,6 @@ produces:
 consumes:
 - application/json
 
-security:
-  - oauth2: [uid]
-
 paths:
 
   '/':
@@ -39,7 +36,7 @@ paths:
         - $ref: '#/parameters/Name'
       tags:
         - General
-      operationId: "{{namespace}}.controller/get-hello"
+      operationId: "{{namespace}}.api/get-hello"
       responses:
         200:
           description: Hello is said
@@ -67,11 +64,3 @@ definitions:
         type: string
     example:
       message: Internal Server Error
-
-securityDefinitions:
-  oauth2:
-    type: oauth2
-    flow: implicit
-    authorizationUrl: https://example.com/oauth2/dialog
-    scopes:
-      uid: Unique identifier of the user accessing the service.
