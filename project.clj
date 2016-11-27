@@ -1,4 +1,4 @@
-(defproject org.zalando.stups/friboo "2.0.0-beta5-SNAPSHOT"
+(defproject org.zalando.stups/friboo "2.0.0-beta5"
   :description "An utility library to write microservices in clojure."
   :url "https://github.com/zalando/friboo"
 
