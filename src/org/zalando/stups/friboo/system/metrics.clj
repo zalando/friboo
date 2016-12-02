@@ -48,7 +48,6 @@
       (let [start    (System/currentTimeMillis)
             response (next-handler request)
             status   (:status response)
-            ;; TODO replace "zmon" with configuration value
             prefix   (config/require-config configuration :metrics-prefix)
             timer    (tmr/timer metrics-registry [prefix "response" (swagger1st-request2string request status)])]
         (.update timer (- (System/currentTimeMillis) start) (TimeUnit/MILLISECONDS))
