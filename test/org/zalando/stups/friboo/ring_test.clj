@@ -1,16 +1,15 @@
 (ns org.zalando.stups.friboo.ring-test
   (:require [clojure.test :refer :all]
+            [midje.sweet :refer :all]
             [org.zalando.stups.friboo.ring :refer :all]))
 
-(deftest test-conpath
-  (are [conpath-args expected-path]
-    (= (apply conpath conpath-args) expected-path)
+(deftest wrap-midje-facts
 
-    ["https://example.com/" "test"] "https://example.com/test"
-    ["https://example.com/" "/test"] "https://example.com/test"
-    ["https://example.com" "/test"] "https://example.com/test"
-    ["https://example.com" "test"] "https://example.com/test"
-    ["https://example.com/" "test" "123"] "https://example.com/test/123"
-    ["https://example.com/" 123 "test/foo" "bar"] "https://example.com/123/test/foo/bar"
-    ["https://example.com/" 123 "/test"] "https://example.com/123/test"
-    ["https://example.com/" nil "/test"] "https://example.com/test"))
+  (facts "about content-type-json"
+    (content-type-json {}) => {:headers {"Content-Type" "application/json"}})
+
+  (facts "about single-response"
+    (single-response []) => (contains {:status 404})
+    (single-response ["foo"]) => (contains {:status 200 :body "foo"}))
+
+  )

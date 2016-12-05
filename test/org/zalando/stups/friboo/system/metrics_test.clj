@@ -17,18 +17,18 @@
     (mock-request :post ["apps"]) 400 "400.POST.apps"))
 
 (deftest test-collect-zmon-metrics
-  (let [component (.start (map->Metrics {}))
+  (let [component (.start (map->Metrics {:configuration {:metrics-prefix "foo"}}))
         next-handler (constantly {:status 404 :body "not found"})
-        handler (collect-swagger1st-zmon-metrics next-handler component)]
+        handler (collect-swagger1st-request-metrics next-handler component)]
     (with-redefs [swagger1st-request2string (constantly "mock")]
       (handler "a request"))
-    (let [timer (-> component :metrics-registry .getTimers (get "zmon.response.mock"))]
+    (let [timer (-> component :metrics-registry .getTimers (get "foo.response.mock"))]
       (is (not (nil? timer))))))
 
 (deftest test-collect-zmon-metrics-component-not-running
   (let [component (map->Metrics {})
         next-handler (constantly {:status 404 :body "not found"})
-        handler (collect-swagger1st-zmon-metrics next-handler component)]
+        handler (collect-swagger1st-request-metrics next-handler component)]
     (is (= handler next-handler))))
 
 (deftest test-add-metrics-servlet

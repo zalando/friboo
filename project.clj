@@ -1,12 +1,12 @@
-(defproject org.zalando.stups/friboo "1.14.0-SNAPSHOT"
-  :description "A utility library to write microservices in clojure."
-  :url "https://github.com/zalando-stups/friboo"
+(defproject org.zalando.stups/friboo "2.0.0-beta6-SNAPSHOT"
+  :description "An utility library to write microservices in clojure."
+  :url "https://github.com/zalando/friboo"
 
   :license {:name "Apache 2.0"
             :url  "http://www.apache.org/licenses/LICENSE-2.0"
             :distribution :repo}
 
-  :scm {:url "git@github.com:zalando-stups/friboo.git"}
+  :scm {:url "git@github.com:zalando/friboo.git"}
 
   :min-lein-version "2.0.0"
 
@@ -30,20 +30,19 @@
                  [org.apache.logging.log4j/log4j-jul "2.7"]
                  [com.jolbox/bonecp "0.8.0.RELEASE" :exclusions [com.google.guava/guava]]
                  [org.flywaydb/flyway-core "4.0.3"]
-                 [org.postgresql/postgresql "9.4.1212"]
                  [amazonica "0.3.77" :exclusions [org.apache.httpcomponents/httpclient joda-time]]
                  [org.clojure/data.codec "0.1.0"]
                  [overtone/at-at "1.2.0"]
                  [org.zalando.stups/tokens "0.9.9"]
-                 [com.netflix.hystrix/hystrix-clj "1.5.7"]
-                 [com.netflix.hystrix/hystrix-core "1.5.7"]
-                 [com.netflix.hystrix/hystrix-metrics-event-stream "1.5.7"]
+                 [com.netflix.hystrix/hystrix-clj "1.5.8"]
+                 [com.netflix.hystrix/hystrix-core "1.5.8"]
+                 [com.netflix.hystrix/hystrix-metrics-event-stream "1.5.8"]
                  [org.clojure/core.incubator "0.1.4"]
                  [metrics-clojure "2.7.0" :exclusions [io.dropwizard.metrics/metrics-core]]
                  [io.dropwizard.metrics/metrics-servlets "3.1.2"]
                  [org.slf4j/slf4j-api "1.7.21"]
-                 [com.fasterxml.jackson.core/jackson-core "2.8.4"]
-                 [com.fasterxml.jackson.core/jackson-databind "2.8.4"]
+                 [com.fasterxml.jackson.core/jackson-core "2.8.5"]
+                 [com.fasterxml.jackson.core/jackson-databind "2.8.5"]
                  [org.apache.httpcomponents/httpclient "4.5.2"]
                  [org.clojure/core.memoize "0.5.9"]
                  [commons-codec "1.10"]

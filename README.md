@@ -1,7 +1,7 @@
 # friboo
 
 ![Maven Central](https://img.shields.io/maven-central/v/org.zalando.stups/friboo.svg)
-[![Build Status](https://travis-ci.org/zalando-stups/friboo.svg?branch=master)](https://travis-ci.org/zalando-stups/friboo)
+[![Build Status](https://travis-ci.org/zalando/friboo.svg?branch=master)](https://travis-ci.org/zalando/friboo)
 [![codecov](https://codecov.io/gh/zalando/friboo/branch/master/graph/badge.svg)](https://codecov.io/gh/zalando/friboo)
 
 **Friboo** is a lightweight utility library for writing microservices in Clojure. It provides several components that you can use with Stuart Sierra's [Component lifecycle framework](https://github.com/stuartsierra/component).
@@ -10,18 +10,20 @@ Friboo encourages an "API First" approach based on the [Swagger specification](h
 
 ## Leiningen dependency
 
-    [org.zalando.stups/friboo 1.13.0]
+    [org.zalando.stups/friboo 2.0.0]
 
 ## Why Friboo?
 
 - Friboo allows you to first define your API in a portable, language-agnostic format, and then implement it (with the help of [swagger1st](https://github.com/sarnowski/swagger1st)).
-- It contains ready-made components/building blocks for your applications: An HTTP server, DB access layer, an audit log (in case you have compliance requirements to follow), and more. See [helpful components](#helpful-components).
-- It does OAuth 2.0 access token checking out of the box.
+- It contains ready-made components/building blocks for your applications: An HTTP server, DB access layer, metrics registry, Hystrix dashboard (in case you have compliance requirements to follow), and more. See [Components](#components).
+- Pluggable support for all authentication mechanisms (basic, OAuth 2.0, API keys). 
 - It contains the "glue code" for you, and there is already a recommended way of doing things.
 
 ## Development Status
 
-Friboo is used in production by numerous services in Zalando; see the list at the end of this page. However, there is always room for improvement, so we're very much open to contributions. For more details, see our [contribution guidelines](CONTRIBUTING.md) and check the Issues Tracker for ways you can help.
+In our production we use an extension library that is based on Friboo: [friboo-ext-zalando](https://github.com/zalando-incubator/friboo-ext-zalando).
+See the list at the end of this page.
+However, there is always room for improvement, so we're very much open to contributions. For more details, see our [contribution guidelines](CONTRIBUTING.md) and check the Issues Tracker for ways you can help.
 
 ## Getting Started
 
@@ -30,211 +32,250 @@ Friboo is used in production by numerous services in Zalando; see the list at th
 * [Leiningen](http://leiningen.org/)
 
 ### Starting a New Project
+
 To start a new project based on Friboo, use the Leiningen template:
 
-    $ lein new friboo <project>
+    $ lein new friboo com.example/friboo-is-awesome
 
 This will generate a sample project containing some "foobar" logic that can serve as a starting point in your experiments.
 
-A new directory with the `<project>` name will be created in the current directory, containing the following files:
+A new directory with name `friboo-is-awesome` will be created in the current directory, containing the following files:
 
 ```
 friboo-is-awesome
-├── Dockerfile
 ├── README.md
-├── db.sh
 ├── dev
 │   └── user.clj
 ├── dev-config.edn
 ├── project.clj
 ├── resources
-│   ├── api
-│   │   └── api.yaml
-│   └── db
-│       ├── migration
-│       │   └── V1__initial_schema.sql
-│       └── queries.sql
+│   └── api
+│       └── api.yaml
 ├── src
-│   └── friboo_is_awesome
-│       ├── api.clj
-│       ├── core.clj
-│       └── db.clj
+│   └── com
+│       └── example
+│           └── friboo_is_awesome
+│               ├── api.clj
+│               └── core.clj
 └── test
-    └── friboo_is_awesome
-        ├── api_test.clj
-        └── core_test.clj
+    └── com
+        └── example
+            └── friboo_is_awesome
+                ├── api_test.clj
+                └── core_test.clj
 ```
 
-* `Dockerfile` contains basic instructions for packaging the uberjar into a Docker image.
 * `README.md` contains some pregenerated development tips for the new project.
-* `db.sh` contains handy scripts to run a PostgreSQL database in a Docker container for development and integration testing.
 * `dev/user.clj` contains functions for [Reloaded Workflow](http://thinkrelevance.com/blog/2013/06/04/clojure-workflow-reloaded).
 * `dev-config.edn` contains environment variables that will be used during reloaded workflow (instead of putting them into `profiles.clj`).
 * `project.clj` contains the project definition with all dependencies and some additional plugins.
 * `resources/api.yaml` contains the [Swagger API definition](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md) in .yaml format.
-* `resources/db/migration/V1__initial_schema.sql` contains some DDL for the example (used by the [Flyway](https://flywaydb.org/) library).
-* `resources/db/queries.sql` contains sample queries for the app (used by the [Yesql](https://github.com/krisajenkins/yesql) library).
-* the `src` directory contains these components:
+* `src` directory contains these files:
 	* `core.clj` is the [system](https://github.com/stuartsierra/component#systems) definition.
 	* `api.clj` contains API endpoint handlers.
-	* `db.clj` contains generated functions for accessing the database.
 * the `test` directory contains unit test examples using both `clojure.test` and [Midje](https://github.com/marick/Midje).
 
-### Configuration Options
+## How Friboo works
 
-In `dev/user.clj`, you can use `:system-log-level` to set the root logger to something other than `INFO`.
+There are two core parts in any Friboo application:
 
-## Helpful Components
+- loading configuration by aggregating many sources
+- starting the [system](https://github.com/stuartsierra/component#systems)
+
+Both these parts are taken care of in `core.clj` in `run` function. The name "run" is not fixed, it can be anything.
+
+Let's put configuration aside for now. A minimal `run` function might look like this:
+
+```clojure
+(require '[com.stuartsierra.component :as component]
+         '[org.zalando.stups.friboo.system.http :as http]
+         '[org.zalando.stups.friboo.system :as system])
+
+(defn run []
+  (let [system (component/map->SystemMap
+                 {:http (http/make-http "api.yaml" {})})]
+    (system/run {} system)))
+```
+
+Here we declare a system that has just one component created by `make-http` function. When started, this component will expose a RESTful API
+where requests are routed according to the Swagger definition in `api.yaml`, which is taken from the classpath (usually `resources/api.yaml`).
+
+Then we call `run` from `-main`:
+
+```clojure
+(defn -main [& args]
+  (try
+    (run)
+    (catch Exception e
+      (println "Could not start the system because of" (str e))
+      (System/exit 1))))
+```
+
+`run` function does not block, it immediately returns the started system that can later be stopped (as reloaded workflow suggests). 
+
+This already works, but it's not too flexible.
+
+### Parsing configuration options
+
+According to https://12factor.net/config, configuration should be provided via environment variables.
+However, with REPL-driven [reloaded workflow](http://thinkrelevance.com/blog/2013/06/04/clojure-workflow-reloaded) you would have to restart the JVM
+every time you need to change a configuration value. That's less than perfect.
+
+Friboo supports several sources of configuration:
+
+- environment variables: `HTTP_PORT=8081`
+- JVM properties: `http.port=8081`
+- development configuration from `dev-config.edn`: `{:http-port 8081}`
+- default configurations per component (hardcoded)
+
+Another challenge is — how to give components only the configuration they need? What if more than one component would like to use `PORT` variable?
+Friboo solves this with namespacing of configuration parameters. Namespace in this case is just a known prefix: `HTTP_`, `API_`, `ENGINE_` etc.
+
+Configuration is in loaded inside `run` by `load-config` function before defining the system:
+
+```clojure
+(defn run [args-config]
+  (let [config (config/load-config
+                 (merge default-http-config
+                        args-config)
+                 [:http])
+        system (component/map->SystemMap
+                 {:http (http/make-http "api.yaml" (:http config))})]
+    (system/run config system)))
+```
+
+Here we make `run` accept a configuration map as an argument, it acts as an additional source of configuration (and it is used by Reloaded Workflow to inject reloadable configuration, see `dev/user.clj`).
+
+`load-config` takes 2 arguments:
+
+- map of default configuration that looks like this:
+
+```clojure
+{:http-port   8081
+ :db-password "1q2w3e4r5t"
+ :foo-bar     "foobar"
+```
+
+- list of namespaces, which are known prefixes configuration variables that we expect:
+
+```clojure
+[:http :db]
+```
+
+Configuration parameters' names are normalized in the following way (this is actually done by [environ](https://github.com/weavejester/environ)):
+
+- `HTTP_PORT` becomes `:http-port`
+- `http.port` becomes `:http-port`
+
+`load-config` normalizes names in all configuration sources, merges them (real environment overrules the default config), filters the parameters by known prefixes and returns a nested map:
+
+```clojure
+{:http {:port 8081}
+ :db   {:password "1q2w3e4r5t"}}
+```
+
+Note that `:foo-bar` parameter did not make it into the output, because it does not start with `:http-` nor `:db-`.
+
+After we have this configuration loaded, it's very straightforward to give each component its part:
+
+```clojure
+{:http (http/make-http "api.yaml" (:http config))
+ :db   (db/make-db (:db config))}
+```
+
+`system/run` also takes the entire configuration as the first argument and uses the `:system` part of it.
+
+## Components
 
 ### HTTP Component
 
-The `def-http-component` macro generates the HTTP component on demand. You can define which dependencies your
-API functions require:
+HTTP component starts a HTTP server and routes the requests based on the Swagger API definition. It lives in `org.zalando.stups.friboo.system.http` namespace.
 
-```clojure
-(ns myapi
-  (:require [org.zalando.stups.friboo.system.http :refer [def-http-component]))
+It has an optional dependency `:controller` that is given to all
+API handlers as first argument. The use case is to make it contain some configuration
+and dependencies that the handlers should have access to.
 
-(def-http-component MyAPI "my-api.yaml" [db scheduler])
-
-(defn my-api-function [parameters request db scheduler]
-  ; your implementation that can use 'db' as well as 'scheduler' dependencies
-  )
+```yaml
+paths:
+  '/hello/{name}':
+    get:
+      operationId: "com.example.myapp.api/get-hello"
+      responses: {}
 ```
 
-The first argument of your function will always be a flattened map (parameter name -> parameter value) without `in`
-categorisation. This violates the Swagger spec, which calls parameter names only unique in combination with your
-`in` type, so be cautious when modelling your API.
-
-The HTTP component is dependent upon a few other components (audit-log, metrics), so we recommend that you use the
-convenience function to create an HTTP system:
+Part of system map (we make `:api` component to be a simple map, it's not necessary 
+for every component to implement `com.stuartsierra.component/Lifecycle` protocol):
 
 ```clojure
-(ns my-app.core
-  (:require [org.zalando.stups.friboo.config :as config]
-            [org.zalando.stups.friboo.system :as system])
+:http      (component/using
+             (http/make-http "api.yaml" (:http config))
+             {:controller :api})
+:api       {:configuration (:api config)}
+```
 
-(defn run
-  [default-configuration]
-  (let [configuration (config/load-configuration
-                         (system/default-http-namespaces-and :db)
-                         [my-app.sql/default-db-configuration
-                          my-app.api/default-http-configuration
-                          default-configuration])
-        system (system/http-system-map configuration
-                  my-app.api/map->API [:db]
-                  :db (my-app.sql/map->DB {:configuration (:db configuration)}))]
+`{:controller :api}` means that `:api` component will be available to `:http` under the name `:controller`, that's what it expects.
 
-    (system/run configuration system)))
+In `com.example.myapp.api` namespace:
+
+```clojure
+(defn get-hello [{:keys [configuration]} {:keys [name]} request]
+  (response {:message (str "Hello " name)}))
+```
+
+`get-hello` (and every other API handler function) is called with 3 arguments:
+
+- `:controller` (`:api` component in our example)
+- merged parameters map from path, query and body parameters
+- raw request map
+
+Every handler function is expected to return a map representing a HTTP response:
+
+```clojure
+{:body    {:message "Hello Michael"}
+ :headers {}
+ :status  200
+```
+
+In our example we use `ring.util.response/response` to create a HTTP 200.
+
+#### Configuration Options
+
+* There are all the [configuration options](https://ring-clojure.github.io/ring/ring.adapter.jetty.html) that Jetty supports, for example:
+
+```clojure
+{:port        8081
+ :cors-origin "*.zalando.de"}
+```
+
+### DB Component
+
+DB component encapsulates JDBC connection pool and provides [Flyway](https://flywaydb.org/) to support schema migrations.
+
+When the component starts, it will have additional `:datasource` key that contains an implementation of `javax.sql.DataSource`. You can use it as you like.
+
+One of the examples is in friboo-ext-zalando:
+
+    $ lein new friboo-ext-zalando db-example
+
+Take a look at the following files:
+
+```
+example
+├── resources
+│   └── db
+│       ├── migration
+│       │   └── V1__initial_schema.sql
+│       └── queries.sql
+└── src
+    └── db_example
+        ├── api.clj
+        ├── core.clj
+        └── sql.clj
 ```
 
 #### Configuration Options
 
-Initialize the component with its configuration in the `:configuration` key:
-
-    (map->MyAPI {:configuration {:port        8080
-                                 :cors-origin "*.zalando.de"}})
-
-* you may set `:cors-origin` to a domain mask for CORS access (e.g., `*.zalando.de`).
-* These are all the [configuration options](https://ring-clojure.github.io/ring/ring.adapter.jetty.html) that Jetty supports.
-
-#### OAuth 2.0 access token checking
-
-You can provide a `TOKENINFO_URL` environment variable with a value like this:
-
-    https://auth.example.com/oauth2/tokeninfo
-
-Then the HTTP component will require every incoming request to have the `Authorization: Bearer <ACCESS_TOKEN>` header. It will validate the token using the specified URL (`GET https://auth.example.com/oauth2/tokeninfo?access_token=<ACCESS_TOKEN>`).
-
-### Database Component
-
-The `def-db-component` macro generates the DB component on demand. The component is itself a `db-spec`-compliant data structure backed by a connection pool:
-
-```clojure
-(ns mydb
-  (:require [org.zalando.stups.friboo.system.db :refer [def-db-component]))
-
-(def-db-component MyDB)
-```
-
-#### Configuration Options
-
-Initialize the component with its configuration in the `:configuration` key:
-
-    (map->MyDB {:configuration {:subprotocol "postgresql"
-                                :subname     "localhost/mydb"}})
-
-TODO link to jdbc documentation, pool specific configuration like min- and max-pool-size
-
-### Audit Log Component (Deprecated, see next section)
-
-The audit log component aims to collect logs of all modifying HTTP requests (POST, PUT, PATCH, DELETE) and 
-store them in an S3 bucket. You can then use this information to create an audit trail.
-
-**Will be removed in a future release!**
-
-#### Configuration Options
-
-* Set `:audit-log-bucket` to enable this component
-    * the value should address the name of an S3 bucket
-    * the application must have write access to this bucket
-    * adjust the frequency with which the log files are written with `:audit-log-flush-millis` (defaults to 10s)
-        * no empty files will be written
-    * to build a meaningful file name pattern, use the environment variables `APPLICATION_ID`, `APPLICATION_VERSION`
-      and `INSTANCE_ID`
-        * `INSTANCE_ID` defaults to random UUID
-
-### New Audit Logger Components
-
-Since the old audit log component does not suit our needs anymore, we introduce new audit log components
-that you have to explicitly call with clojure maps, which get serialized to JSON and shipped somewhere.
-Currently there are S3 and HTTP shippers.
-
-#### HTTP
-
-The HTTP audit logger provides a log function that uploads events via HTTP(S),
-accessible through `(:log-fn your-audit-component)`. The function accepts a
-single argument, which should be a map representing the event you want to log,
-and returns nil.
-
-Set the `:api-url` key in the configuration to the endpoint of the Audit API
-that accepts events, and configure the name of the token to use for
-identification through `:token-name`, e.g.
-
-```clojure
-(audit/map->HTTP {:configuration {:api-url "https://audit.example.org/events"
-                                  :token-name :auditlog}})
-```
-
-Note that the HTTP audit logger needs access to the OAuth2 token refresher (see
-next section), configured with a token of the name specified above.
-
-### OAuth2 token refresher component
-
-The token refresher provides other componens with OAuth2 access tokens by means
-of the function `org.zalando.stups.friboo.system.oauth2/access-token`, which
-takes the name of the token to obtain (as a keyword) and an instance of the
-token refresher component.
-
-The refresher component generates tokens from one of two sources:
-
-1. You can configure static tokens by setting `:access-tokens` in the
-   configuration to a string of the format
-   `"my-first-token=abc,my-second-token=def"`. Such tokens will be accessible
-   through their keywordized names.
-2. The refresher can query an OAuth2 for tokens. Set `:access-token-url` to the
-   corresponding API URL and `:credentials-dir` to a directory in the local file
-   system that contains credentials to access the API.
-
-In addition to the usual configuration, pass the token refresher component a map
-from token names to associated scopes:
-
-```clojure
-(oauth2/map->OAuth2TokenRefresher {:configuration {:access-token-url "https://get.my.token/"
-                                                   :credentials-dir "/secret/api-credentials"}
-                                   :tokens {:some-service ["uid"]
-                                            :another-service ["uid" "launchmissiles"]}})
-```
+For available options please refer to `org.zalando.stups.friboo.system.db/start-component`
 
 ### Metrics Component
 
@@ -251,7 +292,7 @@ This component starts another embedded Jetty at a different port (default 7979) 
 
 #### Configuration Options
 
-All Jetty configuration options are prefixed with `:mgmt-http-` or `MGMT_HTTP_`. 
+All [Jetty configuration options](https://ring-clojure.github.io/ring/ring.adapter.jetty.html). 
 
 ## Real-World Usage
 
@@ -261,7 +302,6 @@ There are multiple examples of real-world usages of Friboo, including among Zala
 * [Kio application registry](https://github.com/zalando-stups/kio) (REST service with DB)
 * [Even SSH access granting service](https://github.com/zalando-stups/even) (REST service with DB)
 * [Essentials](https://github.com/zalando-stups/essentials) (REST service with DB)
-* [Hello world example](https://github.com/dryewo/friboo-hello-world-full) (project that served as base for the Leiningen template)
 
 TODO HINT: set java.util.logging.manager= org.apache.logging.log4j.jul.LogManager to have proper JUL logging.
 

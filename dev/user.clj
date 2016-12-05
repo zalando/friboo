@@ -7,20 +7,7 @@
     [clojure.reflect :refer [reflect]]
     [clojure.repl :refer [apropos dir doc find-doc pst source]]
     [clojure.tools.namespace.repl :refer [refresh refresh-all]]
-    [clojure.edn :as edn]
     [clojure.test :refer [run-all-tests]]))
-
-(def system
-  "A Var containing an object representing the application under
-  development."
-  nil)
-
-(defn slurp-if-exists [file]
-  (when (.exists (clojure.java.io/as-file file))
-    (slurp file)))
-
-(defn load-dev-config [file]
-  (edn/read-string (slurp-if-exists file)))
 
 (defn run-tests []
   (run-all-tests #"org.zalando.stups.friboo.*-test"))
