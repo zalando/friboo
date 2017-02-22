@@ -5,12 +5,14 @@
             [clojure.pprint :refer [pprint]]
             [clojure.reflect :refer [reflect]]
             [clojure.repl :refer [apropos dir doc find-doc pst source]]
+            [clojure.string :as str]
             [clojure.tools.namespace.repl :refer [refresh refresh-all]]
             [com.stuartsierra.component :as component]
             [clojure.test :refer [run-all-tests]]
             [{{namespace}}.core :as core]
             [org.zalando.stups.friboo.system :as system]
-            [org.zalando.stups.friboo.dev :as dev]))
+            [org.zalando.stups.friboo.dev :as dev]
+            [taoensso.timbre :as log]))
 
 ;; A Var containing an object representing the application under development.
 (defonce system nil)
@@ -18,12 +20,10 @@
 (defn start
   "Starts the system running, sets the Var #'system."
   [extra-config]
-  (dev/reload-log4j2-config)
-  (#'system/set-log-level! "DEBUG" :logger-name "{{package}}")
-  (#'system/set-log-level! "DEBUG" :logger-name "org.zalando.stups")
-  (alter-var-root #'system (constantly (core/run (merge {:system-log-level "INFO"}
-                                                        (dev/load-dev-config "./dev-config.edn")
-                                                        extra-config)))))
+  (alter-var-root #'system
+                  (constantly
+                   (core/run (merge (dev/load-dev-config "./dev-config.edn")
+                                    extra-config)))))
 
 (defn stop
   "Stops the system if it is currently running, updates the Var
