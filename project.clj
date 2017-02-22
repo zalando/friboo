@@ -1,4 +1,4 @@
-(defproject org.zalando.stups/friboo "2.0.0-beta6-SNAPSHOT"
+(defproject org.zalando.stups/friboo "2.0.0-beta7-SNAPSHOT"
   :description "An utility library to write microservices in clojure."
   :url "https://github.com/zalando/friboo"
 
@@ -21,13 +21,6 @@
                  [org.eclipse.jetty/jetty-servlet "9.2.10.v20150310"]  ; needs to be in sync with ring dependency
                  [amalloy/ring-gzip-middleware "0.1.3"]
                  [environ "1.1.0"]
-                 [io.clj/logging "0.8.1"]
-                 [org.apache.logging.log4j/log4j-api "2.7"]
-                 [org.apache.logging.log4j/log4j-core "2.7"]
-                 [org.apache.logging.log4j/log4j-slf4j-impl "2.7"]
-                 [org.apache.logging.log4j/log4j-jcl "2.7"]
-                 [org.apache.logging.log4j/log4j-1.2-api "2.7"]
-                 [org.apache.logging.log4j/log4j-jul "2.7"]
                  [com.jolbox/bonecp "0.8.0.RELEASE" :exclusions [com.google.guava/guava]]
                  [org.flywaydb/flyway-core "4.0.3"]
                  [amazonica "0.3.77" :exclusions [org.apache.httpcomponents/httpclient joda-time]]
@@ -46,7 +39,8 @@
                  [org.apache.httpcomponents/httpclient "4.5.2"]
                  [org.clojure/core.memoize "0.5.9"]
                  [commons-codec "1.10"]
-                 [com.newrelic.agent.java/newrelic-api "3.33.0"]]
+                 [com.newrelic.agent.java/newrelic-api "3.33.0"]
+                 [io.clj/logging "0.8.1"]]
 
   :plugins [[lein-cloverage "1.0.9"]
             [lein-environ "1.1.0"]
