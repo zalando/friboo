@@ -7,7 +7,7 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [com.fzakaria/slf4j-timbre "0.3.4"]
                  [com.taoensso/timbre "4.8.0"]
-                 [org.zalando.stups/friboo "2.0.0-beta7-SNAPSHOT"]]
+                 [org.zalando.stups/friboo "2.0.0-beta7"]]
   :main ^:skip-aot {{namespace}}.core
   :uberjar-name "{{name}}.jar"
   :target-path "target/%s"
