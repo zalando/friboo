@@ -15,7 +15,7 @@
 (defn default-log-output-fn
   ([data] (default-log-output-fn nil data))
   ([_ data] (let [{:keys [level ?ns-str ?msg-fmt vargs ?err]} data]
-              (format "%5s [%s] %s - %s%s\n"
+              (format "%5s [%s] %s - %s%s"
                       (str/upper-case (name level))
                       (.getName (Thread/currentThread))
                       (str ?ns-str)
