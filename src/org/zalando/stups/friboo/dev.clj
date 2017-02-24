@@ -1,7 +1,6 @@
 (ns org.zalando.stups.friboo.dev
   (:require [clojure.edn :as edn])
-  (:import (java.net ServerSocket)
-           (org.apache.logging.log4j LogManager)))
+  (:import (java.net ServerSocket)))
 
 (defn slurp-if-exists [file]
   (when (.exists (clojure.java.io/as-file file))
@@ -16,6 +15,3 @@
       (.getLocalPort sock)
       (finally
         (.close sock)))))
-
-(defn reload-log4j2-config []
-  (.reconfigure (LogManager/getContext false)))
